@@ -1,0 +1,5 @@
+[33m58fb2c1[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmaster[m[33m, [m[1;31morigin/master[m[33m)[m Ajustes finais: correção teclado iPhone e funcionalidade guia real
+[33macf2c0a[m Correção dos erros ESLint/TypeScript para deploy no Vercel: tipos definidos, Image do Next.js, remoção de variáveis não utilizadas
+[33m959d200[m Implementação completa do Portugal dos Pequenitos: chat IA, guia real, bilhetes, interface mobile otimizada
+[33m37cb3a6[m Implementar comportamento diferenciado do vídeo para mobile e desktop - Mobile: vídeo pausa ao abrir chat e continua ao fechar - Desktop: vídeo reinicia ao abrir e para ao fechar - Corrigir barra de pesquisa em mobile para abrir chatbot
+[33m8a7dba7[m Atualizar imagens de fundo e comportamento do chatbot em mobile

@@ -1,0 +1,5 @@
+[33m4686a55[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmaster[m[33m)[m Initial commit: Portugal dos Pequenitos project
+[33me610819[m Adicionar estilo roxo para mensagens do bot no chat humano
+[33ma1f1fb0[m[33m ([m[1;31morigin/master[m[33m)[m Melhorar UX/UI das mensagens do chatbot e do guia real
+[33m9717c4d[m Corrigir caminho da imagem de fundo
+[33mbf5a1b2[m Corrigir caminhos de imagens e vídeos para usar o basePath
