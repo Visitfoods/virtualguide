@@ -1793,8 +1793,13 @@ Fluxo de Interacção Recomendado
           </div>
         )}
 
-        {/* Controladores de Vídeo - mostrar apenas quando chats estão abertos */}
-        {(showChatbotPopup || showHumanChat) && !showGuidePopup && (
+        {/* Controladores de Vídeo - Desktop: só quando chats abertos | Mobile: só quando não há popups/chats e não é welcome */}
+        {(
+          // Desktop: mostrar quando chats estão abertos e não há popup do guia
+          (isDesktop && (showChatbotPopup || showHumanChat) && !showGuidePopup) ||
+          // Mobile: mostrar quando não há chats/popups abertos e não é welcome page
+          (!isDesktop && !showChatbotPopup && !showHumanChat && !showGuidePopup && !showStartButton)
+        ) && (
           <div className={`${styles.glassmorphismControlBar} ${styles['page-module___8aEwW__glassmorphismControlBar']}`}>
             <div className={styles.controlButtonsRow}>
               <button 

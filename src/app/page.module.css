@@ -1735,19 +1735,15 @@ a.secondary {
     animation: popIn 0.3s ease-out forwards;
   }
   
-  /* Mostrar barra de controle em mobile */
-  .glassmorphismControlBar {
-    display: flex;
-  }
-  
-  /* Mostrar controles do vídeo em mobile */
-  .controlButtonsRow {
-    display: flex;
-  }
-  
-  /* Mostrar barra de pesquisa em mobile */
+  /* Mostrar barra de pesquisa em mobile apenas quando não há chats */
   .searchInputContainer {
     display: block;
+  }
+  
+  /* Esconder barra de pesquisa quando chats estão abertos */
+  .chatbotOpen .searchInputContainer,
+  .humanChatOpen .searchInputContainer {
+    display: none !important;
   }
   
   /* Manter vídeo em tela cheia em mobile */
@@ -2864,6 +2860,93 @@ a.secondary {
   gap: 12px;
 }
 
+/* REGRA ESPECÍFICA PARA MOBILE - BARRA NO TOPO, CONTROLOS EM BAIXO */
+@media screen and (max-width: 768px) {
+  /* Barra de pesquisa centrada e com espaçamento dos controlos em mobile */
+  .searchInputContainer {
+    position: fixed !important;
+    bottom: 120px !important; /* Mais espaçamento dos controlos */
+    left: 50% !important;
+    transform: translateX(-50%) !important; /* Centralizar horizontalmente */
+    width: calc(100% - 40px) !important; /* Largura com margens */
+    max-width: 400px !important; /* Largura máxima */
+    z-index: 2000 !important;
+    margin-bottom: 0 !important;
+  }
+  
+  /* Controlos do vídeo em mobile - aparecem na parte inferior */
+  .glassmorphismControlBar,
+  .page-module___8aEwW__glassmorphismControlBar {
+    display: flex !important;
+    position: fixed !important;
+    bottom: 30px !important; /* Bem em baixo */
+    left: 20px !important;
+    right: 20px !important;
+    z-index: 500 !important;
+    background: rgba(0, 0, 0, 0.5) !important;
+    backdrop-filter: blur(15px) !important;
+    -webkit-backdrop-filter: blur(15px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    border-radius: 20px !important;
+    padding: 12px !important;
+    margin: 0 !important;
+    flex-direction: row !important;
+    gap: 0 !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25) !important;
+    justify-content: center !important;
+  }
+  
+  /* Controles do vídeo em linha horizontal */
+  .controlButtonsRow {
+    display: flex !important;
+    gap: 8px !important;
+    justify-content: center !important;
+    align-items: center !important;
+    width: 100% !important;
+  }
+  
+  /* Botões de controle mais compactos */
+  .controlButton {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 50px !important;
+    height: 50px !important;
+    background: rgba(255, 255, 255, 0.15) !important;
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+    border-radius: 50% !important;
+    pointer-events: auto !important;
+    cursor: pointer !important;
+    z-index: 1501 !important;
+    backdrop-filter: blur(8px) !important;
+    -webkit-backdrop-filter: blur(8px) !important;
+    transition: all 0.2s ease !important;
+    flex: 1 !important;
+    max-width: 50px !important;
+  }
+  
+  .controlButton:hover {
+    background: rgba(255, 255, 255, 0.25) !important;
+    transform: scale(1.05) !important;
+  }
+  
+  .controlButton svg {
+    width: 20px !important;
+    height: 20px !important;
+    color: white !important;
+    filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.4)) !important;
+  }
+  
+  /* Esconder quando há popups/chats abertos */
+  .chatbotPopupOverlay .glassmorphismControlBar,
+  .guidePopupOverlay .glassmorphismControlBar,
+  .chatbotOpen .glassmorphismControlBar,
+  .humanChatOpen .glassmorphismControlBar {
+    display: none !important;
+  }
+}
+
 .page-module___8aEwW__glassmorphismControlBar {
   background: transparent !important;
   backdrop-filter: none !important;
@@ -2965,6 +3048,7 @@ a.secondary {
   box-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
   overflow: hidden;
   transition: all 0.3s ease;
+  z-index: 2000; /* Garantir que fica por cima dos controlos */
 }
 
 .searchInputWrapper:hover {
@@ -3109,6 +3193,7 @@ a.secondary {
     bottom: 10px;
     padding: 12px 16px;
     margin: 0 10px;
+    display: flex !important; /* Forçar visibilidade em mobile */
   }
   
   .searchInputContainer {
@@ -3133,6 +3218,7 @@ a.secondary {
   .controlButtonsRow {
     gap: 12px;
     justify-content: center;
+    display: flex !important; /* Forçar visibilidade em mobile */
   }
   
   .controlButton {
@@ -3145,7 +3231,7 @@ a.secondary {
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
     border-radius: 50%;
-    display: flex;
+    display: flex !important; /* Forçar visibilidade em mobile */
     align-items: center;
     justify-content: center;
     min-width: unset;
