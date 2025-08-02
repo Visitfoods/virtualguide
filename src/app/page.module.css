@@ -2649,7 +2649,37 @@ a.secondary {
   --foreground-rgb: 0, 0, 0;
 }
 
-  /* Regras para iOS são aplicadas via JavaScript - não sobrescrever aqui */
+  /* FORÇAR visibilidade do botão FALAR COM O GUIA REAL em iOS */
+  .guideRealLinkContainer,
+  .page-module___8aEwW__guideRealLinkContainer {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    position: relative !important;
+    z-index: 9999 !important;
+    background: rgba(255, 255, 255, 0.95) !important;
+    padding: 12px 20px !important;
+    border-top: 1px solid rgba(0, 0, 0, 0.05) !important;
+  }
+  
+  .guideRealLink,
+  .page-module___8aEwW__guideRealLink {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    background: #000000 !important;
+    color: white !important;
+    border: none !important;
+    padding: 12px 24px !important;
+    border-radius: 8px !important;
+    font-weight: 600 !important;
+    text-transform: uppercase !important;
+    font-size: 14px !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+    width: auto !important;
+    min-width: 200px !important;
+  }
   
   .guideRealButton {
     font-size: 14px !important;
@@ -2781,6 +2811,52 @@ a.secondary {
     transform: translateZ(0) !important;
     margin-bottom: 0 !important;
   }
+  
+  /* FORÇAR visibilidade do botão FALAR COM O GUIA REAL em iOS */
+  .guideRealLinkContainer,
+  .page-module___8aEwW__guideRealLinkContainer {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    position: relative !important;
+    z-index: 9999 !important;
+  }
+  
+  .guideRealLink,
+  .page-module___8aEwW__guideRealLink {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    background: #000000 !important;
+    color: white !important;
+    border: none !important;
+    padding: 12px 24px !important;
+    border-radius: 8px !important;
+    font-weight: 600 !important;
+    text-transform: uppercase !important;
+    font-size: 14px !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+    width: auto !important;
+    min-width: 200px !important;
+  }
+  
+  /* GARANTIR que o botão aparece em todas as situações no iOS */
+  .chatbotBottomBar {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    position: relative !important;
+    z-index: 9999 !important;
+  }
+  
+  .fixedBottomContainer {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    position: relative !important;
+    z-index: 9999 !important;
+  }
 
   /* Estilos adicionais para telemóveis pequenos */
   .chatbotUserMessage {
@@ -2808,6 +2884,39 @@ a.secondary {
   .page-module___8aEwW__chatbotMessages {
     padding: 0 !important;
     padding-bottom: 0 !important;
+  }
+  
+  /* REGRA FINAL - FORÇAR visibilidade do botão FALAR COM O GUIA REAL em iOS */
+  .guideRealLinkContainer,
+  .page-module___8aEwW__guideRealLinkContainer,
+  .guideRealLink,
+  .page-module___8aEwW__guideRealLink,
+  .chatbotBottomBar,
+  .fixedBottomContainer {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    position: relative !important;
+    z-index: 9999 !important;
+    background: rgba(255, 255, 255, 0.95) !important;
+    padding: 12px 20px !important;
+    border-top: 1px solid rgba(0, 0, 0, 0.05) !important;
+  }
+  
+  .guideRealLink,
+  .page-module___8aEwW__guideRealLink {
+    background: #000000 !important;
+    color: white !important;
+    border: none !important;
+    padding: 12px 24px !important;
+    border-radius: 8px !important;
+    font-weight: 600 !important;
+    text-transform: uppercase !important;
+    font-size: 14px !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+    width: auto !important;
+    min-width: 200px !important;
   }
 }
 
