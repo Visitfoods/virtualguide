@@ -99,6 +99,14 @@ function CloseIcon() {
   );
 }
 
+function BackIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M19 12H5M12 19L5 12L12 5" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  );
+}
+
 // GuideIcon component for guide functionality - Commented out to fix ESLint warning
 /* function GuideIcon() {
   return (
@@ -1839,12 +1847,14 @@ Fluxo de Interacção Recomendado
           <div className={styles.chatbotPopupOverlay}>
             <div className={`${styles.chatbotPopup} ${showChatbotPopup ? styles.fullscreenPopup : ''}`}>
               <div className={styles.chatbotHeader}>
+                <div></div> {/* Espaçador vazio */}
                 <button 
-                  className={styles.closeChatbotButton} 
+                  className={styles.backButton} 
                   onClick={handleCloseChatbot}
-                  aria-label="Fechar"
+                  aria-label="Voltar"
                 >
-                  <CloseIcon />
+                  <BackIcon />
+                  <span>voltar</span>
                 </button>
               </div>
               <div className={styles.chatbotContent}>
@@ -2156,17 +2166,25 @@ Fluxo de Interacção Recomendado
         <div className={styles.chatbotPopupOverlay}>
           <div className={styles.chatbotPopup}>
             <div className={styles.chatbotHeader}>
-                              <div className={styles.chatbotTitle}>
-                  <div>
-                    <h2>Conversa com Guia Real</h2>
-                    <p>
-                      {getCookie('chat_conversation_id') ? 
-                        `Conversa com ${getCookie('chat_user_name')}` : 
-                        'Conversa em tempo real'}
-                    </p>
-                  </div>
+              <div className={styles.chatbotTitle}>
+                <div>
+                  <h2>Conversa com Guia Real</h2>
+                  <p>
+                    {getCookie('chat_conversation_id') ? 
+                      `Conversa com ${getCookie('chat_user_name')}` : 
+                      'Conversa em tempo real'}
+                  </p>
                 </div>
-              <div className={styles.chatHeaderButtons}>
+              </div>
+              <div className={styles.headerButtonsContainer}>
+                <button 
+                  className={styles.backButton} 
+                  onClick={handleHumanChatClose}
+                  aria-label="Voltar"
+                >
+                  <BackIcon />
+                  <span>voltar</span>
+                </button>
                 {getCookie('chat_conversation_id') && (
                   <button 
                     className={styles.chatbotEndSessionButton}
@@ -2176,12 +2194,6 @@ Fluxo de Interacção Recomendado
                     Encerrar sessão
                   </button>
                 )}
-                <button 
-                  className={styles.chatbotCloseButton}
-                  onClick={handleHumanChatClose}
-                >
-                  <CloseIcon />
-                </button>
               </div>
             </div>
 
