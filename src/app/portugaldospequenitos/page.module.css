@@ -5658,7 +5658,7 @@ a.secondary {
   overflow-y: auto;
   padding: 20px;
   padding-bottom: 120px !important;
-  height: 100vh;
+  height: 100vh; 
   max-height: 100vh;
   display: flex;
   flex-direction: column;

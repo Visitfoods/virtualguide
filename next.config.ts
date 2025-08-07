@@ -47,6 +47,19 @@ const nextConfig: NextConfig = {
                  },
                ],
              },
+             {
+               source: '/legendas-tablet.vtt',
+               headers: [
+                 {
+                   key: 'Content-Type',
+                   value: 'text/vtt; charset=utf-8',
+                 },
+                 {
+                   key: 'Access-Control-Allow-Origin',
+                   value: '*',
+                 },
+               ],
+             },
            ];
          },
 };

@@ -204,7 +204,7 @@ export default function BackofficeDashboard() {
     
     try {
       // Enviar mensagem de despedida antes de fechar a conversa
-      const closingMessageText = "Agradecemos o seu contacto. Se precisar de mais alguma informação, estamos ao dispor. Tenha um excelente dia!";
+              const closingMessageText = "Agradecemos o seu contacto. Esta conversa fica agora encerrada. Caso necessite de mais informações, estaremos sempre ao dispor. Desejamos-lhe um excelente dia no encantador Portugal dos Pequenitos!";
       
       // Enviar a mensagem de despedida
       await sendMessage(selectedConversation.id, {

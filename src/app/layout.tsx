@@ -12,7 +12,7 @@ const montserrat = Montserrat({
 
 export const metadata: Metadata = {
   title: "Portugal dos Pequenitos - VirtualGuide",
-  description: "Landing page interativa com chatbot",
+  description: "Guia Virtual",
   icons: {
     icon: '/favicon.jpg',
   },

@@ -244,6 +244,9 @@ export default function Home() {
   const [showChatbotWelcome, setShowChatbotWelcome] = useState(true);
   const [isAndroid, setIsAndroid] = useState(false);
   const [androidWelcomeHidden, setAndroidWelcomeHidden] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [inactivityTimer, setInactivityTimer] = useState<NodeJS.Timeout | null>(null);
+  const [lastActivity, setLastActivity] = useState<number>(Date.now());
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
   const [activeCategory, setActiveCategory] = useState(0);
   const [formName, setFormName] = useState('');
@@ -307,6 +310,7 @@ export default function Home() {
   const [shouldSaveTime, setShouldSaveTime] = useState(false);
   const [pipManuallyClosed, setPipManuallyClosed] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
+  const [isTablet, setIsTablet] = useState(false);
   const [subtitlesEnabled, setSubtitlesEnabled] = useState(true);
   const videoRef = useRef<HTMLVideoElement>(null);
   const pipVideoRef = useRef<HTMLVideoElement>(null);
@@ -342,6 +346,86 @@ export default function Home() {
     console.log('Deteção Android:', isAndroidDevice);
   }, []);
 
+  // Sistema de timeout por inatividade (24 horas)
+  useEffect(() => {
+    const TIMEOUT_DURATION = 24 * 60 * 60 * 1000; // 24 horas em milissegundos
+    
+    // Função para resetar o timer de inatividade
+    const resetInactivityTimer = () => {
+      setLastActivity(Date.now());
+      
+      // Limpar timer anterior se existir
+      if (inactivityTimer) {
+        clearTimeout(inactivityTimer);
+      }
+      
+      // Criar novo timer
+      const newTimer = setTimeout(async () => {
+        const conversationId = getCookie('chat_conversation_id');
+        
+        if (conversationId && hasActiveSession) {
+          console.log('Timeout de 24h atingido - encerrando conversa por inatividade');
+          
+          try {
+            // Enviar mensagem de despedida
+            await sendMessage(conversationId, {
+              from: 'agent',
+              text: 'Esta conversa foi encerrada automaticamente após 24 horas de inatividade. Se precisar de mais informações, pode iniciar uma nova conversa. Obrigado pelo seu contacto!',
+              read: true
+            });
+            
+            // Encerrar conversa
+            await closeConversation(conversationId);
+            
+            // Limpar cookies e estado local
+            deleteCookie('chat_conversation_id');
+            deleteCookie('chat_user_name');
+            deleteCookie('chat_user_contact');
+            
+            setHasActiveSession(false);
+            setHumanChatMessages([]);
+            setCurrentConversation(null);
+            setShowHumanChat(false);
+            
+            console.log('Conversa encerrada por inatividade de 24h');
+          } catch (error) {
+            console.error('Erro ao encerrar conversa por inatividade:', error);
+          }
+        }
+      }, TIMEOUT_DURATION);
+      
+      setInactivityTimer(newTimer);
+    };
+    
+    // Eventos que resetam o timer
+    const handleActivity = () => {
+      resetInactivityTimer();
+    };
+    
+    // Adicionar event listeners para atividade do utilizador
+    const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
+    
+    events.forEach(event => {
+      document.addEventListener(event, handleActivity, true);
+    });
+    
+    // Inicializar timer se há uma sessão ativa
+    if (hasActiveSession) {
+      resetInactivityTimer();
+    }
+    
+    // Cleanup
+    return () => {
+      if (inactivityTimer) {
+        clearTimeout(inactivityTimer);
+      }
+      
+      events.forEach(event => {
+        document.removeEventListener(event, handleActivity, true);
+      });
+    };
+  }, [hasActiveSession, inactivityTimer]);
+
   // Detectar refresh da página e limpar mensagens do chatbot
   useEffect(() => {
     // Verificar se é um refresh da página (performance.navigation.type === 1)
@@ -352,8 +436,49 @@ export default function Home() {
       setChatbotMessages([]);
       setShowInstructions(true);
       setShowChatbotWelcome(true);
+      
+      // Em dispositivos móveis, também limpar sessão do chat humano
+      if (isMobile) {
+        const conversationId = getCookie('chat_conversation_id');
+        if (conversationId && hasActiveSession) {
+          console.log('Refresh em dispositivo móvel - limpando sessão do chat humano');
+          
+          // Encerrar conversa no servidor
+          closeConversation(conversationId).catch(error => {
+            console.error('Erro ao encerrar conversa no refresh mobile:', error);
+          });
+          
+          // Limpar cookies e estado
+          deleteCookie('chat_conversation_id');
+          deleteCookie('chat_user_name');
+          deleteCookie('chat_user_contact');
+          
+          setHasActiveSession(false);
+          setHumanChatMessages([]);
+          setCurrentConversation(null);
+          setShowHumanChat(false);
+        }
+      }
     }
   }, []);
+  
+  // Detectar se é um carregamento inicial em mobile com sessão existente
+  useEffect(() => {
+    // Só executar uma vez no carregamento inicial
+    const isInitialLoad = !sessionStorage.getItem('mobile_session_checked');
+    
+    if (isInitialLoad && isMobile) {
+      const conversationId = getCookie('chat_conversation_id');
+      const userName = getCookie('chat_user_name');
+      const userContact = getCookie('chat_user_contact');
+      
+      // Se há uma sessão completa em mobile, marcar como verificada
+      if (conversationId && userName && userContact) {
+        sessionStorage.setItem('mobile_session_checked', 'true');
+        console.log('Sessão existente em mobile - mantendo ativa');
+      }
+    }
+  }, [isMobile]);
 
   // Função global para abrir guia real
   useEffect(() => {
@@ -392,9 +517,66 @@ export default function Home() {
         
         // Configurar listener para a conversa existente
         if (!currentConversation) {
+          console.log('=== LISTENER 2 ATIVADO ===');
           unsubscribeRef.current = listenToConversation(conversationId, (conversation) => {
             setCurrentConversation(conversation);
             setHumanChatMessages(conversation.messages);
+            
+            // Verificar se a conversa foi encerrada pelo backoffice
+            if (conversation.status === 'closed') {
+              console.log('Conversa encerrada pelo backoffice - fechando chat e controlando vídeo (listener 2)');
+              console.log('Estado do dispositivo (listener 2):', { isDesktop, isTablet, isMobile });
+              
+              // Fechar o chat após alguns segundos
+              setTimeout(() => {
+                // Limpar listener
+                if (unsubscribeRef.current) {
+                  unsubscribeRef.current();
+                  unsubscribeRef.current = null;
+                }
+                
+                // Restaurar scroll
+                document.body.style.overflow = 'auto';
+                
+                // Fechar chat e limpar estado
+                setShowHumanChat(false);
+                setCurrentConversation(null);
+                setHumanChatMessages([]);
+                setHumanChatInput('');
+                setHasActiveSession(false);
+                
+                // Limpar cookies
+                deleteCookie('chat_conversation_id');
+                deleteCookie('chat_user_name');
+                deleteCookie('chat_user_contact');
+                
+                // Controlar vídeo baseado no dispositivo
+                if (videoRef.current) {
+                  if (isDesktop) {
+                    // PC: Parar vídeo
+                    videoRef.current.pause();
+                    setVideoPlaying(false);
+                    console.log('PC: Vídeo pausado após conversa encerrada pelo backoffice (listener 2)');
+                  } else {
+                    // Smartphone: Continuar vídeo onde estava
+                    videoRef.current.muted = false;
+                    setVideoMuted(false);
+                    videoRef.current.play();
+                    setVideoPlaying(true);
+                    console.log('Smartphone: Vídeo continuando após conversa encerrada pelo backoffice (listener 2)');
+                  }
+                }
+                
+                // Fechar outros popups se estiverem abertos
+                if (showGuidePopup) {
+                  setShowGuidePopup(false);
+                }
+                if (showChatbotPopup) {
+                  setShowChatbotPopup(false);
+                }
+                
+              }, 3000); // Aguardar 3 segundos antes de fechar
+            }
           });
         }
       } else {
@@ -416,15 +598,18 @@ export default function Home() {
 
   // Detectar se é desktop
   useEffect(() => {
-    const checkIsDesktop = () => {
-      setIsDesktop(window.innerWidth >= 1025);
+    const checkDeviceType = () => {
+      const width = window.innerWidth;
+      setIsDesktop(width >= 1025);
+      setIsTablet(width >= 768 && width <= 1024);
+      setIsMobile(width < 768);
     };
     
-    checkIsDesktop();
-    window.addEventListener('resize', checkIsDesktop);
+    checkDeviceType();
+    window.addEventListener('resize', checkDeviceType);
     
     return () => {
-      window.removeEventListener('resize', checkIsDesktop);
+      window.removeEventListener('resize', checkDeviceType);
     };
   }, []);
 
@@ -600,16 +785,17 @@ export default function Home() {
     if (conversationId && userName && userContact) {
       setHasActiveSession(true);
       
-      // Configurar listener para a conversa existente apenas se o chat estiver aberto
-      if (showHumanChat) {
-        unsubscribeRef.current = listenToConversation(conversationId, (conversation) => {
+              // Configurar listener para a conversa existente apenas se o chat estiver aberto
+        if (showHumanChat) {
+          console.log('=== LISTENER 4 ATIVADO ===');
+          unsubscribeRef.current = listenToConversation(conversationId, (conversation) => {
           // Verificar se a conversa foi fechada no backoffice
           if (conversation.status === 'closed') {
             console.log('Conversa foi fechada no backoffice.');
             
             // Verificar se a última mensagem é a mensagem de despedida
             const lastMessage = conversation.messages[conversation.messages.length - 1];
-            const closingMessageText = "Agradecemos o seu contacto. Se precisar de mais alguma informação, estamos ao dispor. Tenha um excelente dia!";
+            const closingMessageText = "Agradecemos o seu contacto. Esta conversa fica agora encerrada. Caso necessite de mais informações, estaremos sempre ao dispor. Desejamos-lhe um excelente dia no encantador Portugal dos Pequenitos!";
             
             // Atualizar as mensagens para mostrar todas, incluindo a de despedida
             setCurrentConversation(conversation);
@@ -645,6 +831,32 @@ export default function Home() {
                 unsubscribeRef.current();
                 unsubscribeRef.current = null;
               }
+              
+              // Controlar vídeo baseado no dispositivo
+              if (videoRef.current) {
+                if (isDesktop) {
+                  // PC: Parar vídeo
+                  videoRef.current.pause();
+                  setVideoPlaying(false);
+                  console.log('PC: Vídeo pausado após conversa encerrada pelo backoffice (listener 1)');
+                } else {
+                  // Smartphone: Continuar vídeo onde estava
+                  videoRef.current.muted = false;
+                  setVideoMuted(false);
+                  videoRef.current.play();
+                  setVideoPlaying(true);
+                  console.log('Smartphone: Vídeo continuando após conversa encerrada pelo backoffice (listener 1)');
+                }
+              }
+              
+              // Fechar outros popups se estiverem abertos
+              if (showGuidePopup) {
+                setShowGuidePopup(false);
+              }
+              if (showChatbotPopup) {
+                setShowChatbotPopup(false);
+              }
+              
             }, 10000); // 10 segundos
             
             return; // Sair para não atualizar os estados novamente
@@ -996,28 +1208,33 @@ export default function Home() {
       const conversationId = getCookie('chat_conversation_id');
       
       if (conversationId && hasActiveSession) {
+        console.log('Detetado fechamento do browser - encerrando sessão do chat');
+        
         try {
-          // Tentar enviar uma mensagem de despedida antes de fechar
-          const closingMessageText = "O utilizador fechou o browser. Sessão encerrada.";
-          
-          await sendMessage(conversationId, {
-            from: 'agent',
-            text: closingMessageText,
-            read: true
-          });
-          
-          // Marcar a conversa como fechada
+          // Tentar encerrar a conversa diretamente primeiro
           await closeConversation(conversationId);
-          
-          // Limpar os cookies locais para evitar que as mensagens sejam restauradas
-          deleteCookie('chat_conversation_id');
-          deleteCookie('chat_user_name');
-          deleteCookie('chat_user_contact');
-          
-          console.log('Sessão do chat encerrada devido ao fechamento do browser');
+          console.log('Conversa encerrada diretamente');
         } catch (error) {
-          console.error('Erro ao encerrar sessão:', error);
+          console.error('Erro ao encerrar conversa diretamente:', error);
+          
+          // Fallback: usar sendBeacon para garantir que a mensagem seja enviada
+          const closingData = {
+            conversationId: conversationId,
+            message: "O utilizador fechou o browser. Sessão encerrada.",
+            action: 'close_session'
+          };
+          
+          if (navigator.sendBeacon) {
+            navigator.sendBeacon('/api/close-session', JSON.stringify(closingData));
+          }
         }
+        
+        // Limpar os cookies locais imediatamente
+        deleteCookie('chat_conversation_id');
+        deleteCookie('chat_user_name');
+        deleteCookie('chat_user_contact');
+        
+        console.log('Cookies limpos e sessão marcada para encerramento');
       }
     };
 
@@ -1028,82 +1245,48 @@ export default function Home() {
       const conversationId = getCookie('chat_conversation_id');
       
       if (conversationId && hasActiveSession) {
+        console.log('Detetado pagehide - encerrando sessão do chat');
+        
         try {
-          // Tentar enviar uma mensagem de despedida antes do refresh
-          const closingMessageText = "O utilizador recarregou a página. Sessão encerrada.";
-          
-          await sendMessage(conversationId, {
-            from: 'agent',
-            text: closingMessageText,
-            read: true
-          });
-          
-          // Marcar a conversa como fechada
+          // Tentar encerrar a conversa diretamente primeiro
           await closeConversation(conversationId);
-          
-          // Limpar os cookies locais para evitar que as mensagens sejam restauradas no refresh
-          deleteCookie('chat_conversation_id');
-          deleteCookie('chat_user_name');
-          deleteCookie('chat_user_contact');
-          
-          console.log('Sessão do chat encerrada devido ao refresh da página');
+          console.log('Conversa encerrada diretamente via pagehide');
         } catch (error) {
-          console.error('Erro ao encerrar sessão:', error);
-        }
-      }
-    };
-
-    const handleVisibilityChange = async () => {
-      console.log('VisibilityChange event triggered', document.visibilityState);
-      
-      // Se a página ficou oculta (refresh ou mudança de tab), limpar cookies
-      if (document.visibilityState === 'hidden') {
-        const conversationId = getCookie('chat_conversation_id');
-        
-        if (conversationId && hasActiveSession) {
-          console.log('Página oculta - limpando cookies');
+          console.error('Erro ao encerrar conversa diretamente:', error);
           
-          // Limpar os cookies locais imediatamente
-          deleteCookie('chat_conversation_id');
-          deleteCookie('chat_user_name');
-          deleteCookie('chat_user_contact');
+          // Fallback: usar sendBeacon para garantir que a mensagem seja enviada
+          const closingData = {
+            conversationId: conversationId,
+            message: "O utilizador saiu da página. Sessão encerrada.",
+            action: 'close_session'
+          };
           
-          console.log('Cookies limpos devido à mudança de visibilidade');
-        }
-      }
-      
-      // Verificação adicional para iOS - se a página voltou a ficar visível, verificar se os cookies ainda existem
-      if (document.visibilityState === 'visible') {
-        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as unknown as {MSStream?: boolean}).MSStream;
-        
-        if (isIOS) {
-          console.log('iOS detectado - verificando cookies após retorno à visibilidade');
-          const conversationId = getCookie('chat_conversation_id');
-          const userName = getCookie('chat_user_name');
-          const userContact = getCookie('chat_user_contact');
-          
-          // Se não há cookies completos, limpar estado
-          if (!conversationId || !userName || !userContact) {
-            console.log('Cookies incompletos no iOS - limpando estado');
-            setHasActiveSession(false);
-            setHumanChatMessages([]);
-            setCurrentConversation(null);
-            setShowHumanChat(false);
+          if (navigator.sendBeacon) {
+            navigator.sendBeacon('/api/close-session', JSON.stringify(closingData));
           }
         }
+        
+        // Limpar os cookies locais imediatamente
+        deleteCookie('chat_conversation_id');
+        deleteCookie('chat_user_name');
+        deleteCookie('chat_user_contact');
+        
+        console.log('Cookies limpos devido ao pagehide');
       }
     };
 
-    // Adicionar event listeners para beforeunload, pagehide e visibilitychange
+
+
+    // Adicionar event listeners para beforeunload, unload e pagehide
     window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('unload', handleBeforeUnload); // Evento adicional para maior fiabilidade
     window.addEventListener('pagehide', handlePageHide);
-    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     // Cleanup function
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('unload', handleBeforeUnload);
       window.removeEventListener('pagehide', handlePageHide);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [hasActiveSession]); // Executar quando o status da sessão mudar
 
@@ -1770,9 +1953,65 @@ Always Respond in European Portuguese
       
       // Configurar listener para a conversa existente
       if (!currentConversation) {
+        console.log('=== LISTENER 3 ATIVADO ===');
         unsubscribeRef.current = listenToConversation(conversationId, (conversation) => {
           setCurrentConversation(conversation);
           setHumanChatMessages(conversation.messages);
+          
+          // Verificar se a conversa foi encerrada pelo backoffice
+          if (conversation.status === 'closed') {
+            console.log('Conversa encerrada pelo backoffice - fechando chat e controlando vídeo');
+            
+            // Fechar o chat após alguns segundos
+            setTimeout(() => {
+              // Limpar listener
+              if (unsubscribeRef.current) {
+                unsubscribeRef.current();
+                unsubscribeRef.current = null;
+              }
+              
+              // Restaurar scroll
+              document.body.style.overflow = 'auto';
+              
+              // Fechar chat e limpar estado
+              setShowHumanChat(false);
+              setCurrentConversation(null);
+              setHumanChatMessages([]);
+              setHumanChatInput('');
+              setHasActiveSession(false);
+              
+              // Limpar cookies
+              deleteCookie('chat_conversation_id');
+              deleteCookie('chat_user_name');
+              deleteCookie('chat_user_contact');
+              
+              // Controlar vídeo baseado no dispositivo
+              if (videoRef.current) {
+                if (isDesktop) {
+                  // PC: Parar vídeo
+                  videoRef.current.pause();
+                  setVideoPlaying(false);
+                  console.log('PC: Vídeo pausado após conversa encerrada pelo backoffice');
+                } else {
+                  // Smartphone: Continuar vídeo onde estava
+                  videoRef.current.muted = false;
+                  setVideoMuted(false);
+                  videoRef.current.play();
+                  setVideoPlaying(true);
+                  console.log('Smartphone: Vídeo continuando após conversa encerrada pelo backoffice');
+                }
+              }
+              
+              // Fechar outros popups se estiverem abertos
+              if (showGuidePopup) {
+                setShowGuidePopup(false);
+              }
+              if (showChatbotPopup) {
+                setShowChatbotPopup(false);
+              }
+              
+            }, 3000); // Aguardar 3 segundos antes de fechar
+          }
         });
       }
     } else {
@@ -2265,9 +2504,65 @@ Always Respond in European Portuguese
         setHumanChatMessages(initialConversation.messages);
         
         // Configurar listener em tempo real para a conversa
+        console.log('=== LISTENER 1 ATIVADO ===');
         unsubscribeRef.current = listenToConversation(conversationId, (conversation) => {
           setCurrentConversation(conversation);
           setHumanChatMessages(conversation.messages);
+          
+          // Verificar se a conversa foi encerrada pelo backoffice
+          if (conversation.status === 'closed') {
+            console.log('Conversa encerrada pelo backoffice - fechando chat e controlando vídeo');
+            
+            // Fechar o chat após alguns segundos
+            setTimeout(() => {
+              // Limpar listener
+              if (unsubscribeRef.current) {
+                unsubscribeRef.current();
+                unsubscribeRef.current = null;
+              }
+              
+              // Restaurar scroll
+              document.body.style.overflow = 'auto';
+              
+              // Fechar chat e limpar estado
+              setShowHumanChat(false);
+              setCurrentConversation(null);
+              setHumanChatMessages([]);
+              setHumanChatInput('');
+              setHasActiveSession(false);
+              
+              // Limpar cookies
+              deleteCookie('chat_conversation_id');
+              deleteCookie('chat_user_name');
+              deleteCookie('chat_user_contact');
+              
+              // Controlar vídeo baseado no dispositivo
+              if (videoRef.current) {
+                if (isDesktop) {
+                  // PC: Parar vídeo
+                  videoRef.current.pause();
+                  setVideoPlaying(false);
+                  console.log('PC: Vídeo pausado após conversa encerrada pelo backoffice');
+                } else {
+                  // Smartphone: Continuar vídeo onde estava
+                  videoRef.current.muted = false;
+                  setVideoMuted(false);
+                  videoRef.current.play();
+                  setVideoPlaying(true);
+                  console.log('Smartphone: Vídeo continuando após conversa encerrada pelo backoffice');
+                }
+              }
+              
+              // Fechar outros popups se estiverem abertos
+              if (showGuidePopup) {
+                setShowGuidePopup(false);
+              }
+              if (showChatbotPopup) {
+                setShowChatbotPopup(false);
+              }
+              
+            }, 3000); // Aguardar 3 segundos antes de fechar
+          }
         });
       }, 2000);
       
@@ -2426,6 +2721,9 @@ Always Respond in European Portuguese
       // Enviar para o Firebase
       await sendMessage(currentConversation.id, userMessage);
       
+      // Resetar timer de inatividade após envio de mensagem
+      setLastActivity(Date.now());
+      
     } catch (error) {
       console.error('Erro ao enviar mensagem:', error);
     } finally {
@@ -2519,7 +2817,7 @@ Always Respond in European Portuguese
           >
             <track 
               kind="subtitles" 
-              src={isDesktop ? "/legendas-desktop.vtt" : "/legendas-mobile.vtt"} 
+              src={isDesktop ? "/legendas-desktop.vtt" : isTablet ? "/legendas-tablet.vtt" : "/legendas-mobile.vtt"} 
               srcLang="pt" 
               label="Português" 
               default 
