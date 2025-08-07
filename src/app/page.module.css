@@ -1,0 +1,646 @@
+/* Estilos para a página principal com interface de vídeo e chat */
+
+/* Interface com vídeo */
+.bgVideoContainer {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+
+
+.backgroundImage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: -1;
+}
+
+/* Barra de bandeiras */
+.flagsBar {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 8px;
+  padding: 8px;
+  backdrop-filter: blur(10px);
+}
+
+.flagsContainer {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.flagItem {
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.flagItem:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: scale(1.1);
+}
+
+.flagItem svg {
+  border-radius: 2px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* Interface de boas-vindas */
+.welcomeOverlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.welcomeBackgroundVideo {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: -1;
+}
+
+.welcomeContent {
+  text-align: center;
+  color: white;
+  z-index: 20;
+}
+
+.searchBarContainer {
+  margin-top: 40px;
+}
+
+.searchBar {
+  background: rgba(255, 255, 255, 0.2);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50px;
+  padding: 16px 32px;
+  color: white;
+  font-size: 18px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 280px;
+  justify-content: center;
+}
+
+.searchBar:hover {
+  background: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.5);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+}
+
+.searchBar:active {
+  transform: translateY(0);
+}
+
+.searchPlaceholder {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  letter-spacing: 0.5px;
+}
+
+.playIcon {
+  width: 20px;
+  height: 20px;
+  color: white;
+}
+
+/* Barra de pesquisa */
+.glassmorphismControlBar {
+  position: absolute;
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(20px);
+  border-radius: 50px;
+  padding: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.searchInputContainer {
+  display: flex;
+  align-items: center;
+}
+
+.searchInputWrapper {
+  display: flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 40px;
+  padding: 8px 16px;
+  gap: 12px;
+  min-width: 300px;
+  transition: all 0.3s ease;
+}
+
+.searchInputWrapper:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.searchInput {
+  background: transparent;
+  border: none;
+  color: white;
+  font-size: 16px;
+  outline: none;
+  flex: 1;
+  min-width: 200px;
+}
+
+.searchInput::placeholder {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.chatInputIcon {
+  color: white;
+  opacity: 0.8;
+}
+
+.searchButton {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.searchButton:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: scale(1.05);
+}
+
+.searchButton svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* Popup do Chatbot */
+.chatbotPopupOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.8);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(10px);
+}
+
+.fullscreenPopup {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  border-radius: 0;
+}
+
+.chatbotPopup {
+  background: white;
+  border-radius: 20px;
+  width: 90%;
+  max-width: 800px;
+  height: 80%;
+  max-height: 600px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  animation: popIn 0.3s ease-out;
+}
+
+@keyframes popIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.chatbotHeader {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 20px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-radius: 20px 20px 0 0;
+}
+
+.chatbotHeaderTitle {
+  flex: 1;
+}
+
+.chatbotHeaderTitle h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.chatbotHeaderSubtitle {
+  margin: 4px 0 0 0;
+  font-size: 14px;
+  opacity: 0.9;
+  font-weight: 500;
+}
+
+.backButton {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  border-radius: 8px;
+  padding: 8px 16px;
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.backButton:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px);
+}
+
+.backButton span {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.chatbotContent {
+  flex: 1;
+  padding: 24px;
+  overflow-y: auto;
+  background: #f8f9fa;
+}
+
+.chatbotWelcome {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.chatbotWelcome h3 {
+  color: #333;
+  font-size: 24px;
+  font-weight: 700;
+  margin: 0 0 8px 0;
+}
+
+.chatbotSubtitle {
+  color: #666;
+  font-size: 16px;
+  font-weight: 500;
+  margin: 0 0 24px 0;
+}
+
+.glassmorphismBox {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(10px);
+  border-radius: 16px;
+  padding: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+.chatbotInstructions {
+  color: #333;
+  font-size: 16px;
+  line-height: 1.6;
+  margin: 0;
+  text-align: left;
+}
+
+.chatbotMessages {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 24px;
+}
+
+.chatbotUserMessage {
+  align-self: flex-end;
+  max-width: 80%;
+}
+
+.chatbotBotMessage {
+  align-self: flex-start;
+  max-width: 80%;
+}
+
+.messageContent {
+  padding: 12px 16px;
+  border-radius: 16px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.chatbotUserMessage .messageContent {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-bottom-right-radius: 4px;
+}
+
+.chatbotBotMessage .messageContent {
+  background: white;
+  color: #333;
+  border: 1px solid #e1e5e9;
+  border-bottom-left-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.chatbotInputBar {
+  background: white;
+  padding: 20px 24px;
+  border-top: 1px solid #e1e5e9;
+  border-radius: 0 0 20px 20px;
+}
+
+.chatbotForm {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.chatbotInput {
+  flex: 1;
+  border: 2px solid #e1e5e9;
+  border-radius: 25px;
+  padding: 12px 20px;
+  font-size: 16px;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.chatbotInput:focus {
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.chatbotInput::placeholder {
+  color: #999;
+}
+
+.chatbotSendButton {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  border-radius: 50%;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.chatbotSendButton:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+}
+
+.chatbotSendButton svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* Estados do chatbot */
+.chatbotOpen .searchInputContainer {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+  .flagsBar {
+    top: 10px;
+    right: 10px;
+  }
+  
+  .flagsContainer {
+    gap: 4px;
+  }
+  
+  .flagItem svg {
+    width: 20px;
+    height: 14px;
+  }
+
+
+  
+  .searchBar {
+    min-width: 240px;
+    padding: 14px 24px;
+    font-size: 16px;
+  }
+  
+  .glassmorphismControlBar {
+    bottom: 20px;
+    left: 20px;
+    right: 20px;
+    transform: none;
+  }
+  
+  .searchInputWrapper {
+    min-width: auto;
+    width: 100%;
+  }
+  
+  .searchInput {
+    min-width: auto;
+  }
+  
+  .chatbotPopup {
+    width: 100%;
+    height: 100%;
+    border-radius: 0;
+    max-width: none;
+    max-height: none;
+  }
+  
+  .chatbotHeader {
+    border-radius: 0;
+    padding: 16px 20px;
+  }
+  
+  .chatbotHeaderTitle h3 {
+    font-size: 16px;
+  }
+  
+  .chatbotHeaderSubtitle {
+    font-size: 12px;
+  }
+  
+  .chatbotContent {
+    padding: 16px;
+  }
+  
+  .chatbotWelcome h3 {
+    font-size: 20px;
+  }
+  
+  .chatbotSubtitle {
+    font-size: 14px;
+  }
+  
+  .glassmorphismBox {
+    padding: 16px;
+  }
+  
+  .chatbotInstructions {
+    font-size: 14px;
+  }
+  
+  .chatbotInputBar {
+    padding: 16px 20px;
+    border-radius: 0;
+  }
+  
+  .chatbotInput {
+    font-size: 14px;
+    padding: 10px 16px;
+  }
+  
+  .chatbotSendButton {
+    width: 44px;
+    height: 44px;
+  }
+  
+  .chatbotSendButton svg {
+    width: 18px;
+    height: 18px;
+  }
+}
+
+@media (max-width: 480px) {
+
+
+  .searchBar {
+    min-width: 200px;
+    padding: 12px 20px;
+    font-size: 14px;
+  }
+  
+  .searchPlaceholder {
+    font-size: 14px;
+  }
+  
+  .playIcon {
+    width: 16px;
+    height: 16px;
+  }
+  
+  .glassmorphismControlBar {
+    bottom: 10px;
+    left: 10px;
+    right: 10px;
+  }
+  
+  .searchInputWrapper {
+    padding: 6px 12px;
+  }
+  
+  .searchInput {
+    font-size: 14px;
+  }
+  
+  .chatbotHeader {
+    padding: 12px 16px;
+  }
+  
+  .chatbotHeaderTitle h3 {
+    font-size: 14px;
+  }
+  
+  .chatbotHeaderSubtitle {
+    font-size: 11px;
+  }
+  
+  .backButton {
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+  
+  .chatbotContent {
+    padding: 12px;
+  }
+  
+  .chatbotWelcome h3 {
+    font-size: 18px;
+  }
+  
+  .chatbotSubtitle {
+    font-size: 13px;
+  }
+  
+  .glassmorphismBox {
+    padding: 12px;
+  }
+  
+  .chatbotInstructions {
+    font-size: 13px;
+  }
+  
+  .chatbotInputBar {
+    padding: 12px 16px;
+  }
+  
+  .chatbotInput {
+    font-size: 13px;
+    padding: 8px 12px;
+  }
+  
+  .chatbotSendButton {
+    width: 40px;
+    height: 40px;
+  }
+  
+  .chatbotSendButton svg {
+    width: 16px;
+    height: 16px;
+  }
+}
