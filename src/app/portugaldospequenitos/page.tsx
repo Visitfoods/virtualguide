@@ -338,6 +338,73 @@ export default function Home() {
     }
   }, []);
 
+  // Capturar cliques em links antes do PiP interferir
+  useEffect(() => {
+    const handleLinkClick = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (target.tagName === 'A' && target.textContent?.includes('COMPRAR BILHETES ONLINE')) {
+        console.log('Link COMPRAR BILHETES ONLINE clicado - capturado antes do PiP');
+        event.stopPropagation();
+        event.preventDefault();
+        // Abrir o link diretamente
+        const href = target.getAttribute('href');
+        if (href) {
+          window.open(href, '_blank', 'noopener,noreferrer');
+        }
+      }
+    };
+
+    const handleTouchStart = (event: TouchEvent) => {
+      const target = event.target as HTMLElement;
+      if (target.tagName === 'A' && target.textContent?.includes('COMPRAR BILHETES ONLINE')) {
+        console.log('Link COMPRAR BILHETES ONLINE clicado via touch - capturado antes do PiP');
+        event.stopPropagation();
+        event.preventDefault();
+        // Abrir o link diretamente
+        const href = target.getAttribute('href');
+        if (href) {
+          window.open(href, '_blank', 'noopener,noreferrer');
+        }
+      }
+    };
+
+    // Adicionar event listeners ao documento com capture para capturar antes do PiP
+    document.addEventListener('click', handleLinkClick, true);
+    document.addEventListener('touchstart', handleTouchStart, true);
+    document.addEventListener('mousedown', handleLinkClick, true);
+
+    // Cleanup
+    return () => {
+      document.removeEventListener('click', handleLinkClick, true);
+      document.removeEventListener('touchstart', handleTouchStart, true);
+      document.removeEventListener('mousedown', handleLinkClick, true);
+    };
+  }, []);
+
+  // Log dos links encontrados
+  useEffect(() => {
+    const logLinks = () => {
+      const links = document.querySelectorAll('a[href*="bymeoblueticket"]');
+      console.log('Links encontrados:', links.length);
+      
+      links.forEach((link) => {
+        console.log('Link encontrado:', link.textContent, link.getAttribute('href'));
+      });
+    };
+
+    // Executar após um pequeno delay para garantir que o DOM foi atualizado
+    const timer = setTimeout(logLinks, 100);
+    
+    // Também executar quando as mensagens mudarem
+    const observer = new MutationObserver(logLinks);
+    observer.observe(document.body, { childList: true, subtree: true });
+
+    return () => {
+      clearTimeout(timer);
+      observer.disconnect();
+    };
+  }, [chatbotMessages, humanChatMessages]);
+
   // Deteção de Android
   useEffect(() => {
     const userAgent = navigator.userAgent.toLowerCase();
@@ -1370,7 +1437,9 @@ export default function Home() {
 
   // Função para formatar respostas do chat com HTML
   function formatChatResponse(text: string): string {
-    return text
+    console.log('Formatando resposta:', text);
+    
+    const formatted = text
       // Remover símbolos # em vez de converter para cabeçalhos HTML
       .replace(/^### (.*$)/gim, '<p style="font-weight: 600; margin: 15px 0 10px 0; font-size: 18px;">$1</p>')
       .replace(/^## (.*$)/gim, '<p style="font-weight: 700; margin: 15px 0 10px 0; font-size: 19px;">$1</p>')
@@ -1388,7 +1457,10 @@ export default function Home() {
       .replace(/\[([^\]]+)\]\(#guia-real\)/g, '<button onclick="window.openGuiaReal()" style="color: #3498db; text-decoration: none; border-bottom: 1px dotted #3498db; background: none; border: none; cursor: pointer; font-size: inherit; font-family: inherit;">$1</button>')
       
       // Converter links normais
-      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" style="color: #3498db; text-decoration: none; border-bottom: 1px dotted #3498db;" target="_blank" rel="noopener noreferrer">$1</a>')
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (match, text, url) => {
+        console.log('Processando link:', text, url);
+        return `<a href="${url}" style="color: #3498db; text-decoration: none; border-bottom: 1px dotted #3498db;" target="_blank" rel="noopener noreferrer">${text}</a>`;
+      })
       
       // Converter código inline
       .replace(/`([^`]+)`/g, '<code style="background: #f8f9fa; color: #e74c3c; padding: 2px 6px; border-radius: 4px; font-family: monospace; font-size: 14px;">$1</code>')
@@ -1406,6 +1478,9 @@ export default function Home() {
       // Adicionar espaçamento entre elementos
       .replace(/<\/h([1-3])><p/g, '</h$1><div style="margin: 15px 0;"><p')
       .replace(/<\/p><\/div>/g, '</p></div>');
+    
+    console.log('Resposta formatada:', formatted);
+    return formatted;
   }
 
   // Função para gerar resposta local baseada no conhecimento
@@ -3039,6 +3114,19 @@ Always Respond in European Portuguese
                             <div 
                               className={styles.messageContent}
                               dangerouslySetInnerHTML={{ __html: msg.text }}
+                              onClick={(e) => {
+                                const target = e.target as HTMLElement;
+                                if (target.tagName === 'A' && target.textContent?.includes('COMPRAR BILHETES ONLINE')) {
+                                  e.preventDefault();
+                                  alert('Botão COMPRAR BILHETES ONLINE clicado!');
+                                  console.log('Link clicado via onClick do container (chatbot principal)');
+                                  
+                                  const href = target.getAttribute('href');
+                                  if (href) {
+                                    window.open(href, '_blank', 'noopener,noreferrer');
+                                  }
+                                }
+                              }}
                             />
                           </>
                         ) : (
@@ -3367,7 +3455,23 @@ Always Respond in European Portuguese
                 >
                   {message.from === 'user' ? (
                     <>
-                      <div className={styles.messageContent} dangerouslySetInnerHTML={{ __html: message.text }} />
+                      <div 
+                        className={styles.messageContent} 
+                        dangerouslySetInnerHTML={{ __html: message.text }}
+                        onClick={(e) => {
+                          const target = e.target as HTMLElement;
+                          if (target.tagName === 'A' && target.textContent?.includes('COMPRAR BILHETES ONLINE')) {
+                            e.preventDefault();
+                            alert('Botão COMPRAR BILHETES ONLINE clicado!');
+                            console.log('Link clicado via onClick do container');
+                            
+                            const href = target.getAttribute('href');
+                            if (href) {
+                              window.open(href, '_blank', 'noopener,noreferrer');
+                            }
+                          }
+                        }}
+                      />
                       <Image 
                         src="/utilizador.png" 
                         alt="Utilizador" 
@@ -3385,7 +3489,23 @@ Always Respond in European Portuguese
                         height={40}
                         className={styles.messageAvatar}
                       />
-                      <div className={styles.messageContent} dangerouslySetInnerHTML={{ __html: message.text }} />
+                      <div 
+                        className={styles.messageContent} 
+                        dangerouslySetInnerHTML={{ __html: message.text }}
+                        onClick={(e) => {
+                          const target = e.target as HTMLElement;
+                          if (target.tagName === 'A' && target.textContent?.includes('COMPRAR BILHETES ONLINE')) {
+                            e.preventDefault();
+                            alert('Botão COMPRAR BILHETES ONLINE clicado!');
+                            console.log('Link clicado via onClick do container');
+                            
+                            const href = target.getAttribute('href');
+                            if (href) {
+                              window.open(href, '_blank', 'noopener,noreferrer');
+                            }
+                          }
+                        }}
+                      />
                     </>
                   )}
                   <div className={styles.messageTime}>
@@ -3438,12 +3558,28 @@ Always Respond in European Portuguese
           onMouseDown={handleDragStart}
           onTouchStart={handleDragStart}
           onClick={(e) => {
+            // Verificar se o clique foi em um link
+            const target = e.target as HTMLElement;
+            if (target.tagName === 'A') {
+              // Permitir que cliques em links passem através do PiP
+              console.log('Link clicado através do PiP:', target.textContent);
+              e.stopPropagation();
+              e.preventDefault();
+              // Simular o clique no link
+              const href = target.getAttribute('href');
+              if (href) {
+                window.open(href, '_blank', 'noopener,noreferrer');
+              }
+              return;
+            }
+            
             // Evitar que o clique no container feche o chat se clicou nos controlos
             if (e.target === e.currentTarget || e.target === pipVideoRef.current) {
               if (showChatbotPopup) handleCloseChatbot();
               if (showHumanChat) handleHumanChatClose();
             }
           }}
+
         >
           <video
             ref={pipVideoRef}

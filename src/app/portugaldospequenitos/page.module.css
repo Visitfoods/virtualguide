@@ -64,6 +64,7 @@
 
 .loadingSpinner {
   margin-top: 20px;
+  display: none; /* Ocultar a roda de loading */
 }
 
 .spinner {
@@ -74,6 +75,7 @@
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin: 0 auto;
+  display: none; /* Ocultar o spinner */
 }
 
 @keyframes fadeIn {
@@ -138,6 +140,7 @@
   .spinner {
     width: 30px;
     height: 30px;
+    display: none; /* Ocultar o spinner em mobile também */
   }
 }
 
@@ -1737,6 +1740,7 @@ a.secondary {
   -webkit-user-select: none;
   -moz-user-select: none;
   -ms-user-select: none;
+  pointer-events: none; /* Permitir cliques através do PiP */
 }
 
 .pipVideoContainer:hover {
@@ -1783,6 +1787,7 @@ a.secondary {
   border-radius: 10px;
   background: #000;
   overflow: hidden;
+  pointer-events: auto; /* Permitir interação com o vídeo */
 }
 
 /* Botão de fechar exterior */
@@ -1802,6 +1807,7 @@ a.secondary {
   z-index: 99997;
   transition: all 0.2s ease;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  pointer-events: auto; /* Permitir fechar o PiP */
 }
 
 .pipCloseButtonExterior:hover {
@@ -1858,7 +1864,7 @@ a.secondary {
   justify-content: center;
   opacity: 0.7;
   transition: opacity 0.2s ease;
-  pointer-events: none; /* Não capturar eventos de mouse */
+  pointer-events: auto; /* Permitir drag do PiP */
 }
 
 .pipVideoContainer:hover .pipDragHandle {
@@ -1889,6 +1895,7 @@ a.secondary {
   gap: 8px;
   opacity: 0;
   transition: opacity 0.2s ease;
+  pointer-events: auto; /* Permitir interação com os controlos */
 }
 
 .pipVideoContainer:hover .pipControls {
@@ -2192,7 +2199,7 @@ a.secondary {
 @media (max-width: 1024px) {
   /* Imagem de fundo específica para dispositivos móveis */
   .backgroundImage {
-    background-image: url('/judite-com-fundo.jpg');
+    /* Removida a imagem judite-com-fundo.jpg */
   }
   
   .chatbotPopupOverlay {
@@ -5403,9 +5410,7 @@ a.secondary {
 
 @media (max-width: 1024px) {
   .welcomeOverlay {
-    background: url('/judite-com-fundo.jpg') center center;
-    background-size: cover;
-    background-repeat: no-repeat;
+    /* Removida a imagem judite-com-fundo.jpg */
   }
   
   .searchBar {
@@ -5474,9 +5479,7 @@ a.secondary {
 
 @media (max-width: 480px) {
   .welcomeOverlay {
-    background: url('/judite-com-fundo.jpg') center center;
-    background-size: cover;
-    background-repeat: no-repeat;
+    /* Removida a imagem judite-com-fundo.jpg */
   }
   
   .searchBar {
