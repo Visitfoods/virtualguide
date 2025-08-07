@@ -29,7 +29,7 @@ const translationsData = {
 };
 
 export default function ComingSoon() {
-  const [currentLanguage, setCurrentLanguage] = useState('portugal');
+  const [, setCurrentLanguage] = useState('portugal');
   const [translations, setTranslations] = useState(translationsData.portugal);
 
   useEffect(() => {

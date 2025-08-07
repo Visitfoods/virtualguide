@@ -1,5 +1,5 @@
 'use client';
-import { useState, FormEvent, useRef, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 import styles from "./page.module.css";
 
 // Componentes SVG das bandeiras
@@ -55,13 +55,14 @@ function SendIcon() {
   );
 }
 
-function CloseIcon() {
+// CloseIcon component - Commented out to fix ESLint warning
+/* function CloseIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path d="M4.5 4.5L13.5 13.5M4.5 13.5L13.5 4.5" stroke="#fff" strokeWidth="1.5" strokeLinecap="round"/>
     </svg>
   );
-}
+} */
 
 function BackIcon() {
   return (

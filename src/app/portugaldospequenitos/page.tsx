@@ -364,7 +364,8 @@ function DownloadIcon() {
   );
 }
 
-function ExpandIcon() {
+// ExpandIcon component - Commented out to fix ESLint warning
+/* function ExpandIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path d="M8 3H5C3.89543 3 3 3.89543 3 5V8" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -373,7 +374,7 @@ function ExpandIcon() {
       <path d="M8 21H5C3.89543 21 3 20.1046 3 19V16" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
     </svg>
   );
-}
+} */
 
 function SubtitlesIcon({ enabled }: { enabled?: boolean }) {
   return (
@@ -413,7 +414,7 @@ export default function Home() {
   const [formName, setFormName] = useState('');
   const [formContact, setFormContact] = useState('');
   const [formSubmitting, setFormSubmitting] = useState(false);
-  const [formSubmitted, setFormSubmitted] = useState(false);
+  const [, setFormSubmitted] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   
   // Estados para o chat humano
@@ -545,8 +546,8 @@ export default function Home() {
     };
   }, []);
 
-  // Log dos links encontrados
-  useEffect(() => {
+  // Log dos links encontrados - Commented out to fix ESLint warning
+  /* useEffect(() => {
     const logLinks = () => {
       const links = document.querySelectorAll('a[href*="bymeoblueticket"]');
       // Logs removidos para limpeza do console
@@ -563,7 +564,7 @@ export default function Home() {
       clearTimeout(timer);
       observer.disconnect();
     };
-  }, [chatbotMessages, humanChatMessages]);
+  }, [chatbotMessages, humanChatMessages]); */
 
   // Deteção de Android
   useEffect(() => {
@@ -581,7 +582,7 @@ export default function Home() {
       // Método 1: performance.navigation (deprecated mas ainda funciona em alguns browsers)
       (performance.navigation && performance.navigation.type === 1) ||
       // Método 2: Verificar se a página foi carregada do cache
-      (performance.getEntriesByType && (performance.getEntriesByType('navigation')[0] as any)?.type === 'reload') ||
+      (performance.getEntriesByType && (performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming)?.type === 'reload') ||
       // Método 3: Verificar se há entrada de navigation
       (performance.getEntriesByType && performance.getEntriesByType('navigation').length > 0)
     );
@@ -637,7 +638,7 @@ export default function Home() {
         sessionStorage.setItem('mobile_session_checked', 'true');
       }
     }
-  }, [isMobile]);
+  }, [isMobile, showGuidePopup]);
 
   // Limpeza específica para iOS no carregamento inicial
   useEffect(() => {
@@ -780,7 +781,7 @@ export default function Home() {
     return () => {
       delete (window as { openGuiaReal?: () => void }).openGuiaReal;
     };
-  }, [showChatbotPopup, currentConversation]);
+  }, [showChatbotPopup, currentConversation, isDesktop, showGuidePopup]);
 
   // Detectar se é desktop
   useEffect(() => {
@@ -805,15 +806,15 @@ export default function Home() {
     
     if (showChatbotPopup || showHumanChat) {
       document.body.style.overflow = 'hidden';
-      // No Android, forçar um reflow para garantir que o scroll seja bloqueado
-      if (isAndroid) {
-        document.body.offsetHeight; // Trigger reflow
-      }
+              // No Android, forçar um reflow para garantir que o scroll seja bloqueado
+        if (isAndroid) {
+          void document.body.offsetHeight; // Trigger reflow
+        }
     } else {
       document.body.style.overflow = 'auto';
       // No Android, forçar um reflow para garantir que o scroll seja restaurado
       if (isAndroid) {
-        document.body.offsetHeight; // Trigger reflow
+        void document.body.offsetHeight; // Trigger reflow
       }
     }
 
@@ -822,7 +823,7 @@ export default function Home() {
       document.body.style.overflow = 'auto';
       // No Android, garantir que o scroll seja restaurado no cleanup
       if (isAndroid) {
-        document.body.offsetHeight; // Trigger reflow
+        void document.body.offsetHeight; // Trigger reflow
       }
     };
   }, [showChatbotPopup, showHumanChat]);
@@ -1125,7 +1126,7 @@ export default function Home() {
     return () => {
       clearInterval(intervalId);
     };
-  }, [hasActiveSession, showHumanChat]); // Executar quando o status da sessão ou o estado do chat mudar
+  }, [hasActiveSession, showHumanChat, showChatbotPopup, showGuidePopup]); // Executar quando o status da sessão ou o estado do chat mudar
 
   // Controlar vídeo PiP quando chats abrem em mobile
   useEffect(() => {
@@ -1221,7 +1222,7 @@ export default function Home() {
       setSavedVideoTime(currentTime);
       setShouldSaveTime(false);
     }
-  }, [showChatbotPopup, showHumanChat, showGuidePopup, isDesktop, shouldSaveTime]);
+  }, [showChatbotPopup, showHumanChat, showGuidePopup, isDesktop, shouldSaveTime, savedVideoTime]);
 
   // Sincronizar estado do vídeo PiP com eventos de play/pause
   useEffect(() => {
@@ -1383,11 +1384,11 @@ export default function Home() {
         document.removeEventListener('touchend', handleDragEnd);
       };
     }
-  }, [isDragging, dragOffset]);
+  }, [isDragging, dragOffset, handleDragMove]);
 
   // Lidar com o fechamento do browser para encerrar a sessão do chat
   useEffect(() => {
-    const handleBeforeUnload = async (event: BeforeUnloadEvent) => {
+    const handleBeforeUnload = async (_event: BeforeUnloadEvent) => {
       // Verificar se há uma sessão ativa do chat humano
       const conversationId = getCookie('chat_conversation_id');
       
@@ -1417,7 +1418,7 @@ export default function Home() {
       }
     };
 
-    const handlePageHide = async (event: PageTransitionEvent) => {
+    const handlePageHide = async (_event: PageTransitionEvent) => {
       // Verificar se há uma sessão ativa do chat humano
       const conversationId = getCookie('chat_conversation_id');
       
@@ -1495,11 +1496,13 @@ export default function Home() {
     }
 
     return () => {
-      if (videoRef.current) {
-        videoRef.current.removeEventListener('loadedmetadata', activateSubtitles);
+      const video = videoRef.current;
+      const pipVideo = pipVideoRef.current;
+      if (video) {
+        video.removeEventListener('loadedmetadata', activateSubtitles);
       }
-      if (pipVideoRef.current) {
-        pipVideoRef.current.removeEventListener('loadedmetadata', activateSubtitles);
+      if (pipVideo) {
+        pipVideo.removeEventListener('loadedmetadata', activateSubtitles);
       }
     };
   }, []);
@@ -2463,14 +2466,14 @@ Geralmente responde em poucos minutos.
     return emailRegex.test(email);
   }
 
-  // Função para validar telefone (formato internacional)
-  function isValidPhone(phone: string): boolean {
+  // Função para validar telefone (formato internacional) - Commented out to fix ESLint warning
+  /* function isValidPhone(phone: string): boolean {
     // Remove espaços, hífens e parênteses
     const cleanPhone = phone.replace(/[\s\-\(\)]/g, '');
     // Valida números de telefone internacionais: + seguido de código do país e número, ou apenas números
     const phoneRegex = /^(\+\d{1,4})?[\d\s\-\(\)]{7,15}$/;
     return phoneRegex.test(cleanPhone);
-  }
+  } */
 
   async function handleGuideFormSubmit(e: FormEvent) {
     e.preventDefault();
@@ -2760,8 +2763,8 @@ Geralmente responde em poucos minutos.
     setShowCloseConfirmation(false);
   }
   
-  // Função para encerrar completamente a sessão
-  async function handleEndSession() {
+  // Função para encerrar completamente a sessão - Commented out to fix ESLint warning
+  /* async function handleEndSession() {
     try {
       // Restaurar o scroll quando o chat do guia real for fechado
       document.body.style.overflow = 'auto';
@@ -2828,7 +2831,7 @@ Geralmente responde em poucos minutos.
         }
       }
     }
-  }
+  } */
 
   async function handleHumanChatSend(e: React.FormEvent) {
     e.preventDefault();
@@ -2865,13 +2868,13 @@ Geralmente responde em poucos minutos.
   }
 
   // Handlers para as bandeiras
-      function handleFlagClick(country: string) {
-      if (country !== 'portugal') {
-        // Armazenar a língua selecionada no localStorage
-        localStorage.setItem('selectedLanguage', country);
-        window.location.href = '/coming-soon';
-      }
+  function handleFlagClick(country: string) {
+    if (country !== 'portugal') {
+      // Armazenar a língua selecionada no localStorage
+      localStorage.setItem('selectedLanguage', country);
+      window.location.href = '/coming-soon';
     }
+  }
 
   return (
     <>
@@ -3286,7 +3289,7 @@ Geralmente responde em poucos minutos.
     document.body.style.overflow = 'auto';
     // No Android, forçar um reflow para garantir que o scroll seja restaurado
     if (/android/i.test(navigator.userAgent)) {
-      document.body.offsetHeight; // Trigger reflow
+      void document.body.offsetHeight; // Trigger reflow
     }
                     // Mobile: Continuar vídeo automaticamente com som
                     if (videoRef.current && !isDesktop) {
