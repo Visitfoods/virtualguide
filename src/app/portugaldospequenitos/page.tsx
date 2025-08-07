@@ -407,8 +407,7 @@ export default function Home() {
   const [isAndroid, setIsAndroid] = useState(false);
   const [androidWelcomeHidden, setAndroidWelcomeHidden] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  const [inactivityTimer, setInactivityTimer] = useState<NodeJS.Timeout | null>(null);
-  const [lastActivity, setLastActivity] = useState<number>(Date.now());
+
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
   const [activeCategory, setActiveCategory] = useState(0);
   const [formName, setFormName] = useState('');
@@ -424,6 +423,7 @@ export default function Home() {
   const [humanChatInput, setHumanChatInput] = useState('');
   const [humanChatSubmitting, setHumanChatSubmitting] = useState(false);
   const [hasActiveSession, setHasActiveSession] = useState(false);
+  const [showCloseConfirmation, setShowCloseConfirmation] = useState(false);
   const [videoMuted, setVideoMuted] = useState(false);
   const [videoPlaying, setVideoPlaying] = useState(false);
   const [pipVideoPlaying, setPipVideoPlaying] = useState(false);
@@ -490,12 +490,9 @@ export default function Home() {
     const userName = getCookie('chat_user_name');
     const userContact = getCookie('chat_user_contact');
     
-    console.log('Verificação inicial de cookies:', { conversationId, userName, userContact });
-    
     // Se há cookies parciais (alguns existem, outros não), limpar todos
     if ((conversationId && !userName) || (conversationId && !userContact) || 
         (userName && !conversationId) || (userContact && !conversationId)) {
-      console.log('Cookies parciais encontrados - limpando todos');
       deleteCookie('chat_conversation_id');
       deleteCookie('chat_user_name');
       deleteCookie('chat_user_contact');
@@ -510,7 +507,6 @@ export default function Home() {
     const handleLinkClick = (event: MouseEvent) => {
       const target = event.target as HTMLElement;
       if (target.tagName === 'A' && target.textContent?.includes('COMPRAR BILHETES ONLINE')) {
-        console.log('Link COMPRAR BILHETES ONLINE clicado - capturado antes do PiP');
         event.stopPropagation();
         event.preventDefault();
         // Abrir o link diretamente
@@ -524,7 +520,6 @@ export default function Home() {
     const handleTouchStart = (event: TouchEvent) => {
       const target = event.target as HTMLElement;
       if (target.tagName === 'A' && target.textContent?.includes('COMPRAR BILHETES ONLINE')) {
-        console.log('Link COMPRAR BILHETES ONLINE clicado via touch - capturado antes do PiP');
         event.stopPropagation();
         event.preventDefault();
         // Abrir o link diretamente
@@ -532,7 +527,9 @@ export default function Home() {
         if (href) {
           window.open(href, '_blank', 'noopener,noreferrer');
         }
+        return; // Sair da função para não interferir com outros eventos touch
       }
+      // Não prevenir eventos touch para outros elementos - permitir scroll normal
     };
 
     // Adicionar event listeners ao documento com capture para capturar antes do PiP
@@ -552,11 +549,7 @@ export default function Home() {
   useEffect(() => {
     const logLinks = () => {
       const links = document.querySelectorAll('a[href*="bymeoblueticket"]');
-      console.log('Links encontrados:', links.length);
-      
-      links.forEach((link) => {
-        console.log('Link encontrado:', link.textContent, link.getAttribute('href'));
-      });
+      // Logs removidos para limpeza do console
     };
 
     // Executar após um pequeno delay para garantir que o DOM foi atualizado
@@ -577,109 +570,37 @@ export default function Home() {
     const userAgent = navigator.userAgent.toLowerCase();
     const isAndroidDevice = /android/.test(userAgent);
     setIsAndroid(isAndroidDevice);
-    console.log('Deteção Android:', isAndroidDevice);
   }, []);
 
-  // Sistema de timeout por inatividade (24 horas)
-  useEffect(() => {
-    const TIMEOUT_DURATION = 24 * 60 * 60 * 1000; // 24 horas em milissegundos
-    
-    // Função para resetar o timer de inatividade
-    const resetInactivityTimer = () => {
-      setLastActivity(Date.now());
-      
-      // Limpar timer anterior se existir
-      if (inactivityTimer) {
-        clearTimeout(inactivityTimer);
-      }
-      
-      // Criar novo timer
-      const newTimer = setTimeout(async () => {
-        const conversationId = getCookie('chat_conversation_id');
-        
-        if (conversationId && hasActiveSession) {
-          console.log('Timeout de 24h atingido - encerrando conversa por inatividade');
-          
-          try {
-            // Enviar mensagem de despedida
-            await sendMessage(conversationId, {
-              from: 'agent',
-              text: 'Esta conversa foi encerrada automaticamente após 24 horas de inatividade. Se precisar de mais informações, pode iniciar uma nova conversa. Obrigado pelo seu contacto!',
-              read: true
-            });
-            
-            // Encerrar conversa
-            await closeConversation(conversationId);
-            
-            // Limpar cookies e estado local
-            deleteCookie('chat_conversation_id');
-            deleteCookie('chat_user_name');
-            deleteCookie('chat_user_contact');
-            
-            setHasActiveSession(false);
-            setHumanChatMessages([]);
-            setCurrentConversation(null);
-            setShowHumanChat(false);
-            
-            console.log('Conversa encerrada por inatividade de 24h');
-          } catch (error) {
-            console.error('Erro ao encerrar conversa por inatividade:', error);
-          }
-        }
-      }, TIMEOUT_DURATION);
-      
-      setInactivityTimer(newTimer);
-    };
-    
-    // Eventos que resetam o timer
-    const handleActivity = () => {
-      resetInactivityTimer();
-    };
-    
-    // Adicionar event listeners para atividade do utilizador
-    const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
-    
-    events.forEach(event => {
-      document.addEventListener(event, handleActivity, true);
-    });
-    
-    // Inicializar timer se há uma sessão ativa
-    if (hasActiveSession) {
-      resetInactivityTimer();
-    }
-    
-    // Cleanup
-    return () => {
-      if (inactivityTimer) {
-        clearTimeout(inactivityTimer);
-      }
-      
-      events.forEach(event => {
-        document.removeEventListener(event, handleActivity, true);
-      });
-    };
-  }, [hasActiveSession, inactivityTimer]);
+
 
   // Detectar refresh da página e limpar mensagens do chatbot
   useEffect(() => {
-    // Verificar se é um refresh da página (performance.navigation.type === 1)
-    const isRefresh = performance.navigation.type === 1;
+    // Detectar refresh usando múltiplos métodos para compatibilidade
+    const isRefresh = (
+      // Método 1: performance.navigation (deprecated mas ainda funciona em alguns browsers)
+      (performance.navigation && performance.navigation.type === 1) ||
+      // Método 2: Verificar se a página foi carregada do cache
+      (performance.getEntriesByType && (performance.getEntriesByType('navigation')[0] as any)?.type === 'reload') ||
+      // Método 3: Verificar se há entrada de navigation
+      (performance.getEntriesByType && performance.getEntriesByType('navigation').length > 0)
+    );
     
-    if (isRefresh) {
-      console.log('Refresh da página detectado - limpando mensagens do chatbot');
+    // Detectar se é iOS
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as unknown as {MSStream?: boolean}).MSStream;
+    
+    if (isRefresh || isIOS) {
       setChatbotMessages([]);
       setShowInstructions(true);
       setShowChatbotWelcome(true);
       
-      // Em dispositivos móveis, também limpar sessão do chat humano
-      if (isMobile) {
+      // Em dispositivos móveis ou iOS, limpar sessão do chat humano
+      if (isMobile || isIOS) {
         const conversationId = getCookie('chat_conversation_id');
-        if (conversationId && hasActiveSession) {
-          console.log('Refresh em dispositivo móvel - limpando sessão do chat humano');
-          
+        if (conversationId) {
           // Encerrar conversa no servidor
           closeConversation(conversationId).catch(error => {
-            console.error('Erro ao encerrar conversa no refresh mobile:', error);
+            console.error('Erro ao encerrar conversa no refresh mobile/iOS:', error);
           });
           
           // Limpar cookies e estado
@@ -691,6 +612,11 @@ export default function Home() {
           setHumanChatMessages([]);
           setCurrentConversation(null);
           setShowHumanChat(false);
+          
+          // Limpar sessionStorage também para iOS
+          if (isIOS) {
+            sessionStorage.removeItem('mobile_session_checked');
+          }
         }
       }
     }
@@ -709,10 +635,38 @@ export default function Home() {
       // Se há uma sessão completa em mobile, marcar como verificada
       if (conversationId && userName && userContact) {
         sessionStorage.setItem('mobile_session_checked', 'true');
-        console.log('Sessão existente em mobile - mantendo ativa');
       }
     }
   }, [isMobile]);
+
+  // Limpeza específica para iOS no carregamento inicial
+  useEffect(() => {
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as unknown as {MSStream?: boolean}).MSStream;
+    
+    if (isIOS) {
+      // Em iOS, sempre limpar sessão no carregamento inicial para evitar problemas
+      const conversationId = getCookie('chat_conversation_id');
+      if (conversationId) {
+        // Encerrar conversa no servidor
+        closeConversation(conversationId).catch(error => {
+          console.error('Erro ao encerrar conversa no carregamento iOS:', error);
+        });
+        
+        // Limpar cookies e estado
+        deleteCookie('chat_conversation_id');
+        deleteCookie('chat_user_name');
+        deleteCookie('chat_user_contact');
+        
+        setHasActiveSession(false);
+        setHumanChatMessages([]);
+        setCurrentConversation(null);
+        setShowHumanChat(false);
+        
+        // Limpar sessionStorage
+        sessionStorage.removeItem('mobile_session_checked');
+      }
+    }
+  }, []);
 
   // Função global para abrir guia real
   useEffect(() => {
@@ -744,72 +698,70 @@ export default function Home() {
             // Mobile: Guardar o tempo atual para sincronização com PiP
             const currentTime = videoRef.current.currentTime;
             setSavedVideoTime(currentTime);
-            console.log('Tempo guardado ao abrir chat humano existente:', currentTime);
             // Não pausar o vídeo principal aqui - deixar o useEffect do PiP gerenciar
           }
         }
         
         // Configurar listener para a conversa existente
         if (!currentConversation) {
-          console.log('=== LISTENER 2 ATIVADO ===');
           unsubscribeRef.current = listenToConversation(conversationId, (conversation) => {
             setCurrentConversation(conversation);
             setHumanChatMessages(conversation.messages);
             
             // Verificar se a conversa foi encerrada pelo backoffice
             if (conversation.status === 'closed') {
-              console.log('Conversa encerrada pelo backoffice - fechando chat e controlando vídeo (listener 2)');
-              console.log('Estado do dispositivo (listener 2):', { isDesktop, isTablet, isMobile });
               
               // Fechar o chat após alguns segundos
               setTimeout(() => {
-                // Limpar listener
-                if (unsubscribeRef.current) {
-                  unsubscribeRef.current();
-                  unsubscribeRef.current = null;
+                              // Limpar listener
+              if (unsubscribeRef.current) {
+                unsubscribeRef.current();
+                unsubscribeRef.current = null;
+              }
+              
+              // Restaurar scroll
+              document.body.style.overflow = 'auto';
+              // No Android, forçar um reflow para garantir que o scroll seja restaurado
+              if (/android/i.test(navigator.userAgent)) {
+                document.body.offsetHeight; // Trigger reflow
+              }
+              
+              // Fechar chat e limpar estado
+              setShowHumanChat(false);
+              setCurrentConversation(null);
+              setHumanChatMessages([]);
+              setHumanChatInput('');
+              setHasActiveSession(false);
+              
+              // Limpar cookies
+              deleteCookie('chat_conversation_id');
+              deleteCookie('chat_user_name');
+              deleteCookie('chat_user_contact');
+              
+              // Controlar vídeo baseado no dispositivo
+              if (videoRef.current) {
+                if (isDesktop) {
+                  // PC: Parar vídeo
+                  videoRef.current.pause();
+                  setVideoPlaying(false);
+                } else {
+                  // Smartphone: Continuar vídeo onde estava
+                  videoRef.current.muted = false;
+                  setVideoMuted(false);
+                  videoRef.current.play();
+                  setVideoPlaying(true);
                 }
-                
-                // Restaurar scroll
-                document.body.style.overflow = 'auto';
-                
-                // Fechar chat e limpar estado
-                setShowHumanChat(false);
-                setCurrentConversation(null);
-                setHumanChatMessages([]);
-                setHumanChatInput('');
-                setHasActiveSession(false);
-                
-                // Limpar cookies
-                deleteCookie('chat_conversation_id');
-                deleteCookie('chat_user_name');
-                deleteCookie('chat_user_contact');
-                
-                // Controlar vídeo baseado no dispositivo
-                if (videoRef.current) {
-                  if (isDesktop) {
-                    // PC: Parar vídeo
-                    videoRef.current.pause();
-                    setVideoPlaying(false);
-                    console.log('PC: Vídeo pausado após conversa encerrada pelo backoffice (listener 2)');
-                  } else {
-                    // Smartphone: Continuar vídeo onde estava
-                    videoRef.current.muted = false;
-                    setVideoMuted(false);
-                    videoRef.current.play();
-                    setVideoPlaying(true);
-                    console.log('Smartphone: Vídeo continuando após conversa encerrada pelo backoffice (listener 2)');
-                  }
-                }
-                
-                // Fechar outros popups se estiverem abertos
-                if (showGuidePopup) {
-                  setShowGuidePopup(false);
-                }
-                if (showChatbotPopup) {
-                  setShowChatbotPopup(false);
-                }
-                
-              }, 3000); // Aguardar 3 segundos antes de fechar
+              }
+              
+              // Fechar outros popups se estiverem abertos
+              if (showGuidePopup) {
+                setShowGuidePopup(false);
+              }
+              if (showChatbotPopup) {
+                setShowChatbotPopup(false);
+              }
+              
+            }, 3000); // Aguardar 3 segundos antes de fechar
             }
           });
         }
@@ -849,15 +801,29 @@ export default function Home() {
 
   // Controlar scroll da página quando chatbot está aberto
   useEffect(() => {
+    const isAndroid = /android/i.test(navigator.userAgent);
+    
     if (showChatbotPopup || showHumanChat) {
       document.body.style.overflow = 'hidden';
+      // No Android, forçar um reflow para garantir que o scroll seja bloqueado
+      if (isAndroid) {
+        document.body.offsetHeight; // Trigger reflow
+      }
     } else {
       document.body.style.overflow = 'auto';
+      // No Android, forçar um reflow para garantir que o scroll seja restaurado
+      if (isAndroid) {
+        document.body.offsetHeight; // Trigger reflow
+      }
     }
 
     // Cleanup quando componente desmonta
     return () => {
       document.body.style.overflow = 'auto';
+      // No Android, garantir que o scroll seja restaurado no cleanup
+      if (isAndroid) {
+        document.body.offsetHeight; // Trigger reflow
+      }
     };
   }, [showChatbotPopup, showHumanChat]);
   
@@ -866,9 +832,6 @@ export default function Home() {
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as unknown as {MSStream?: boolean}).MSStream;
     
     if (isIOS) {
-      console.log("Detectado dispositivo iOS - aplicando correções específicas");
-      console.log("User Agent:", navigator.userAgent);
-      console.log("Adicionando classe ios-device ao body");
       
       // Adicionar meta viewport para evitar problemas com zoom
       let viewportMeta = document.querySelector('meta[name="viewport"]');
@@ -997,8 +960,6 @@ export default function Home() {
         }
       `;      
       document.head.appendChild(style);
-      console.log("Regras CSS específicas para iOS aplicadas");
-      console.log("Classe ios-device no body:", document.body.classList.contains('ios-device'));
       
       return () => {
         window.removeEventListener('resize', setIOSHeight);
@@ -1014,18 +975,14 @@ export default function Home() {
     const userName = getCookie('chat_user_name');
     const userContact = getCookie('chat_user_contact');
     
-    console.log('Verificando sessão ativa:', { conversationId, userName, userContact });
-    
     if (conversationId && userName && userContact) {
       setHasActiveSession(true);
       
               // Configurar listener para a conversa existente apenas se o chat estiver aberto
         if (showHumanChat) {
-          console.log('=== LISTENER 4 ATIVADO ===');
           unsubscribeRef.current = listenToConversation(conversationId, (conversation) => {
           // Verificar se a conversa foi fechada no backoffice
           if (conversation.status === 'closed') {
-            console.log('Conversa foi fechada no backoffice.');
             
             // Verificar se a última mensagem é a mensagem de despedida
             const lastMessage = conversation.messages[conversation.messages.length - 1];
@@ -1072,14 +1029,12 @@ export default function Home() {
                   // PC: Parar vídeo
                   videoRef.current.pause();
                   setVideoPlaying(false);
-                  console.log('PC: Vídeo pausado após conversa encerrada pelo backoffice (listener 1)');
                 } else {
                   // Smartphone: Continuar vídeo onde estava
                   videoRef.current.muted = false;
                   setVideoMuted(false);
                   videoRef.current.play();
                   setVideoPlaying(true);
-                  console.log('Smartphone: Vídeo continuando após conversa encerrada pelo backoffice (listener 1)');
                 }
               }
               
@@ -1174,7 +1129,7 @@ export default function Home() {
 
   // Controlar vídeo PiP quando chats abrem em mobile
   useEffect(() => {
-    console.log('useEffect PiP:', { isDesktop, showChatbotPopup, showHumanChat, showGuidePopup, pipVisible });
+
     
     if (!isDesktop && showGuidePopup) {
       // Quando formulário abre em mobile: pausar vídeo (sem PiP)
@@ -1182,7 +1137,6 @@ export default function Home() {
       if (videoRef.current) {
         const currentTime = videoRef.current.currentTime;
         setSavedVideoTime(currentTime);
-        console.log('Formulário aberto - pausando vídeo em:', currentTime);
         videoRef.current.pause();
         setVideoPlaying(false);
       }
@@ -1197,7 +1151,6 @@ export default function Home() {
           if (pipVideoRef.current && videoRef.current) {
             // Sincronizar o tempo do vídeo PiP com o vídeo principal
             const timeToUse = savedVideoTime > 0 ? savedVideoTime : videoRef.current.currentTime || 0;
-            console.log('PiP configurando com tempo:', timeToUse, 'savedVideoTime:', savedVideoTime, 'videoRef.currentTime:', videoRef.current?.currentTime);
 
             pipVideoRef.current.currentTime = timeToUse;
             pipVideoRef.current.muted = false; // Garantir som no PiP
@@ -1211,7 +1164,6 @@ export default function Home() {
               if (pipVideoRef.current) {
                 pipVideoRef.current.play()
                   .then(() => {
-                    console.log('PiP reproduzindo com sucesso!');
                     setPipVideoPlaying(true);
                   })
                   .catch((error) => {
@@ -1248,7 +1200,6 @@ export default function Home() {
         
         videoRef.current.play().then(() => {
           setVideoPlaying(true);
-          console.log('Vídeo principal retomado após fechar chat/formulário');
         }).catch((error) => {
           console.error('Erro ao retomar vídeo principal:', error);
         });
@@ -1267,7 +1218,6 @@ export default function Home() {
     // Só guardar o tempo se o PiP estava visível e o chat fechou (não quando PiP é fechado manualmente)
     if (!isDesktop && !showChatbotPopup && !showHumanChat && !showGuidePopup && videoRef.current && shouldSaveTime) {
       const currentTime = videoRef.current.currentTime;
-      console.log('Guardando tempo do vídeo quando chat/formulário fechou:', currentTime);
       setSavedVideoTime(currentTime);
       setShouldSaveTime(false);
     }
@@ -1305,7 +1255,6 @@ export default function Home() {
       if (pipVideoRef.current && !pipVideoPlaying) {
         pipVideoRef.current.play()
           .then(() => {
-            console.log('PiP iniciado após interação do usuário');
             setPipVideoPlaying(true);
           })
           .catch((error) => {
@@ -1353,7 +1302,11 @@ export default function Home() {
 
   const handleDragMove = (e: MouseEvent | TouchEvent) => {
     if (!isDragging) return;
-    e.preventDefault();
+    
+    // Apenas prevenir default se estiver realmente a fazer drag
+    if (isDragging) {
+      e.preventDefault();
+    }
     
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
     const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
@@ -1385,7 +1338,6 @@ export default function Home() {
 
   // Função para fechar apenas o PiP sem fechar o chat
   const handleClosePiP = () => {
-    console.log('handleClosePiP executada!');
     // Parar o vídeo PiP
     if (pipVideoRef.current) {
       pipVideoRef.current.pause();
@@ -1405,7 +1357,6 @@ export default function Home() {
     setPipManuallyClosed(true);
     // Esconder o PiP completamente
     setPipVisible(false);
-    console.log('PiP fechado manualmente com sucesso!');
   };
 
   // Função para alternar o mute do vídeo PiP
@@ -1414,7 +1365,6 @@ export default function Home() {
       const newMutedState = !pipMuted;
       pipVideoRef.current.muted = newMutedState;
       setPipMuted(newMutedState);
-      console.log('PiP mute alternado:', newMutedState);
     }
   };
 
@@ -1442,12 +1392,9 @@ export default function Home() {
       const conversationId = getCookie('chat_conversation_id');
       
       if (conversationId && hasActiveSession) {
-        console.log('Detetado fechamento do browser - encerrando sessão do chat');
-        
         try {
           // Tentar encerrar a conversa diretamente primeiro
           await closeConversation(conversationId);
-          console.log('Conversa encerrada diretamente');
         } catch (error) {
           console.error('Erro ao encerrar conversa diretamente:', error);
           
@@ -1467,24 +1414,17 @@ export default function Home() {
         deleteCookie('chat_conversation_id');
         deleteCookie('chat_user_name');
         deleteCookie('chat_user_contact');
-        
-        console.log('Cookies limpos e sessão marcada para encerramento');
       }
     };
 
     const handlePageHide = async (event: PageTransitionEvent) => {
-      console.log('PageHide event triggered', event.type);
-      
       // Verificar se há uma sessão ativa do chat humano
       const conversationId = getCookie('chat_conversation_id');
       
       if (conversationId && hasActiveSession) {
-        console.log('Detetado pagehide - encerrando sessão do chat');
-        
         try {
           // Tentar encerrar a conversa diretamente primeiro
           await closeConversation(conversationId);
-          console.log('Conversa encerrada diretamente via pagehide');
         } catch (error) {
           console.error('Erro ao encerrar conversa diretamente:', error);
           
@@ -1504,8 +1444,6 @@ export default function Home() {
         deleteCookie('chat_conversation_id');
         deleteCookie('chat_user_name');
         deleteCookie('chat_user_contact');
-        
-        console.log('Cookies limpos devido ao pagehide');
       }
     };
 
@@ -1527,23 +1465,21 @@ export default function Home() {
   // Ativar legendas quando os vídeos carregam
   useEffect(() => {
     const activateSubtitles = () => {
-      console.log('Ativando legendas...');
-      
       if (videoRef.current) {
         const tracks = videoRef.current.textTracks;
-        console.log('Tracks do vídeo principal:', tracks.length);
         for (let i = 0; i < tracks.length; i++) {
-          console.log('Track', i, ':', tracks[i].kind, tracks[i].label, tracks[i].language);
-          tracks[i].mode = 'showing';
+          if (tracks[i].kind === 'subtitles' || tracks[i].kind === 'captions') {
+            tracks[i].mode = 'showing';
+          }
         }
       }
       
       if (pipVideoRef.current) {
         const tracks = pipVideoRef.current.textTracks;
-        console.log('Tracks do vídeo PiP:', tracks.length);
         for (let i = 0; i < tracks.length; i++) {
-          console.log('Track PiP', i, ':', tracks[i].kind, tracks[i].label, tracks[i].language);
-          tracks[i].mode = 'showing';
+          if (tracks[i].kind === 'subtitles' || tracks[i].kind === 'captions') {
+            tracks[i].mode = 'showing';
+          }
         }
       }
     };
@@ -1604,7 +1540,6 @@ export default function Home() {
 
   // Função para formatar respostas do chat com HTML
   function formatChatResponse(text: string): string {
-    console.log('Formatando resposta:', text);
     
     const formatted = text
       // Remover símbolos # em vez de converter para cabeçalhos HTML
@@ -1625,7 +1560,6 @@ export default function Home() {
       
       // Converter links normais
       .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (match, text, url) => {
-        console.log('Processando link:', text, url);
         return `<a href="${url}" style="color: #3498db; text-decoration: none; border-bottom: 1px dotted #3498db;" target="_blank" rel="noopener noreferrer">${text}</a>`;
       })
       
@@ -1646,7 +1580,6 @@ export default function Home() {
       .replace(/<\/h([1-3])><p/g, '</h$1><div style="margin: 15px 0;"><p')
       .replace(/<\/p><\/div>/g, '</p></div>');
     
-    console.log('Resposta formatada:', formatted);
     return formatted;
   }
 
@@ -1905,7 +1838,6 @@ Geralmente responde em poucos minutos.
       }
 
       const data = await response.json();
-      console.log('Resposta da API:', data);
       
       // Verificar o formato da resposta
       if (data.choices && data.choices[0]) {
@@ -1936,7 +1868,6 @@ Geralmente responde em poucos minutos.
         
         // Se parecer inglês, usar resposta local
         if (englishWordCount > 2 || responseText.length < 10) {
-          console.log('Resposta detectada como inglês ou muito curta, usando fallback');
           return generateLocalResponse(userMessage);
         }
         
@@ -2089,17 +2020,15 @@ Geralmente responde em poucos minutos.
           }
         } else {
           // Mobile: Guardar o tempo atual para sincronização com PiP
-          const currentTime = videoRef.current.currentTime;
-          setSavedVideoTime(currentTime);
-          console.log('Tempo guardado ao abrir chat humano (delayed):', currentTime);
+                      const currentTime = videoRef.current.currentTime;
+            setSavedVideoTime(currentTime);
           // Não pausar o vídeo principal aqui - deixar o useEffect do PiP gerenciar
         }
       }
       
-      // Configurar listener para a conversa existente
-      if (!currentConversation) {
-        console.log('=== LISTENER 3 ATIVADO ===');
-        unsubscribeRef.current = listenToConversation(conversationId, (conversation) => {
+              // Configurar listener para a conversa existente
+        if (!currentConversation) {
+          unsubscribeRef.current = listenToConversation(conversationId, (conversation) => {
           setCurrentConversation(conversation);
           setHumanChatMessages(conversation.messages);
           
@@ -2183,7 +2112,7 @@ Geralmente responde em poucos minutos.
       videoRef.current.play();
     }
     
-    console.log("Experiência iniciada!");
+
   } */
 
   // Commented out to fix ESLint warning
@@ -2192,7 +2121,7 @@ Geralmente responde em poucos minutos.
       videoRef.current.currentTime = 0;
       videoRef.current.play();
     }
-    console.log("Ver novamente!");
+
   } */
 
   function handleTalkToMe() {
@@ -2256,7 +2185,7 @@ Geralmente responde em poucos minutos.
       }, 100);
     }
     
-    console.log("Falar comigo!");
+
   }
 
   function handleSearchBarClick() {
@@ -2288,9 +2217,8 @@ Geralmente responde em poucos minutos.
         }
       } else {
         // Mobile: Guardar o tempo atual para sincronização com PiP
-        const currentTime = videoRef.current.currentTime;
-        setSavedVideoTime(currentTime);
-        console.log('Tempo guardado ao abrir chat:', currentTime);
+                    const currentTime = videoRef.current.currentTime;
+            setSavedVideoTime(currentTime);
         // Não pausar o vídeo principal aqui - deixar o useEffect do PiP gerenciar
       }
     } else {
@@ -2312,7 +2240,6 @@ Geralmente responde em poucos minutos.
             // Mobile: Guardar o tempo atual para sincronização com PiP (no timeout)
             const currentTime = videoRef.current.currentTime;
             setSavedVideoTime(currentTime);
-            console.log('Tempo guardado ao abrir chat (delayed):', currentTime);
             // Não pausar o vídeo principal aqui - deixar o useEffect do PiP gerenciar
           }
         }
@@ -2326,7 +2253,7 @@ Geralmente responde em poucos minutos.
       }, 300);
     }
     // Em mobile, não focar automaticamente para evitar que o teclado abra
-    console.log("Barra de pesquisa clicada!");
+
   }
 
   function handleRewind() {
@@ -2649,9 +2576,8 @@ Geralmente responde em poucos minutos.
               }
             } else {
               // Mobile: Guardar o tempo atual para sincronização com PiP
-              const currentTime = videoRef.current.currentTime;
-              setSavedVideoTime(currentTime);
-              console.log('Tempo guardado ao abrir chat humano:', currentTime);
+                          const currentTime = videoRef.current.currentTime;
+            setSavedVideoTime(currentTime);
               // Não pausar o vídeo principal aqui - deixar o useEffect do PiP gerenciar
             }
           }
@@ -2757,47 +2683,81 @@ Geralmente responde em poucos minutos.
 
   // Funções para o chat humano
   function handleHumanChatClose() {
-    // Limpar listener em tempo real
-    if (unsubscribeRef.current) {
-      unsubscribeRef.current();
-      unsubscribeRef.current = null;
-    }
-    
-    // Restaurar o scroll quando o chat do guia real for fechado
-    document.body.style.overflow = 'auto';
-    
-    // Apenas fechar o chat sem apagar os cookies
-    setShowHumanChat(false);
-    setCurrentConversation(null);
-    setHumanChatMessages([]);
-    setHumanChatInput('');
-    
-    // Garantir que o popup do guia também seja fechado se estiver aberto
-    if (showGuidePopup) {
-      setShowGuidePopup(false);
-    }
-    
-    // Garantir que o chatbot AI também seja fechado se estiver aberto
-    if (showChatbotPopup) {
-      setShowChatbotPopup(false);
-    }
-    
-    // Comportamento diferente para desktop e mobile ao fechar chat humano
-    if (videoRef.current) {
-      if (isDesktop) {
-        // Desktop: Parar vídeo e mostrar imagem de fundo
-        videoRef.current.pause();
-        setVideoPlaying(false);
-      } else {
-        // Mobile: Continuar vídeo automaticamente com som
-        videoRef.current.muted = false;
-        setVideoMuted(false);
-        videoRef.current.play();
-        setVideoPlaying(true);
+    // Mostrar popup de confirmação
+    setShowCloseConfirmation(true);
+  }
+
+  async function handleConfirmClose() {
+    try {
+      // Obter o ID da conversa atual do cookie
+      const conversationId = getCookie('chat_conversation_id');
+      
+      // Se existir uma conversa ativa, marcá-la como fechada no Firebase
+      if (conversationId) {
+        await closeConversation(conversationId);
       }
+      
+      // Limpar listener em tempo real
+      if (unsubscribeRef.current) {
+        unsubscribeRef.current();
+        unsubscribeRef.current = null;
+      }
+      
+      // Restaurar o scroll quando o chat do guia real for fechado
+      document.body.style.overflow = 'auto';
+      // No Android, forçar um reflow para garantir que o scroll seja restaurado
+      if (/android/i.test(navigator.userAgent)) {
+        document.body.offsetHeight; // Trigger reflow
+      }
+      
+      // Fechar o chat e limpar estados
+      setShowHumanChat(false);
+      setCurrentConversation(null);
+      setHumanChatMessages([]);
+      setHumanChatInput('');
+      setHasActiveSession(false);
+      
+      // Fechar popup de confirmação
+      setShowCloseConfirmation(false);
+      
+      // Garantir que o popup do guia também seja fechado se estiver aberto
+      if (showGuidePopup) {
+        setShowGuidePopup(false);
+      }
+      
+      // Garantir que o chatbot AI também seja fechado se estiver aberto
+      if (showChatbotPopup) {
+        setShowChatbotPopup(false);
+      }
+      
+      // Comportamento diferente para desktop e mobile ao fechar chat humano
+      if (videoRef.current) {
+        if (isDesktop) {
+          // Desktop: Parar vídeo e mostrar imagem de fundo
+          videoRef.current.pause();
+          setVideoPlaying(false);
+        } else {
+          // Mobile: Continuar vídeo automaticamente com som
+          videoRef.current.muted = false;
+          setVideoMuted(false);
+          videoRef.current.play();
+          setVideoPlaying(true);
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao encerrar conversa:', error);
+      // Mesmo com erro, fechar o chat e limpar estados
+      setShowHumanChat(false);
+      setCurrentConversation(null);
+      setHumanChatMessages([]);
+      setHumanChatInput('');
+      setHasActiveSession(false);
+      setShowCloseConfirmation(false);
     }
-    
-    // Não limpar a sessão ativa
+  }
+
+  function handleCancelClose() {
+    setShowCloseConfirmation(false);
   }
   
   // Função para encerrar completamente a sessão
@@ -2805,6 +2765,10 @@ Geralmente responde em poucos minutos.
     try {
       // Restaurar o scroll quando o chat do guia real for fechado
       document.body.style.overflow = 'auto';
+      // No Android, forçar um reflow para garantir que o scroll seja restaurado
+      if (/android/i.test(navigator.userAgent)) {
+        document.body.offsetHeight; // Trigger reflow
+      }
       
       // Obter o ID da conversa atual do cookie
       const conversationId = getCookie('chat_conversation_id');
@@ -2812,7 +2776,7 @@ Geralmente responde em poucos minutos.
       // Se existir uma conversa ativa, marcá-la como fechada no Firebase
       if (conversationId) {
         await closeConversation(conversationId);
-        console.log('Conversa fechada no Firebase:', conversationId);
+
       }
       
       // Limpar cookies da sessão
@@ -2889,9 +2853,6 @@ Geralmente responde em poucos minutos.
       // Enviar para o Firebase
       await sendMessage(currentConversation.id, userMessage);
       
-      // Resetar timer de inatividade após envio de mensagem
-      setLastActivity(Date.now());
-      
     } catch (error) {
       console.error('Erro ao enviar mensagem:', error);
     } finally {
@@ -2939,6 +2900,24 @@ Geralmente responde em poucos minutos.
         {/* Barra de bandeiras no topo */}
         <div className={styles.flagsBar}>
           <div className={styles.flagsContainer}>
+            {/* Botão de voltar para smartphone - só aparece quando há conversa no chat com AI */}
+            {isMobile && chatbotMessages.length > 0 && (
+              <button 
+                className={styles.backToChatButton}
+                onClick={() => {
+                  setShowChatbotPopup(true);
+                  // Em mobile, pausar o vídeo principal quando abrir o chat
+                  if (videoRef.current && !isDesktop) {
+                    videoRef.current.pause();
+                  }
+                }}
+                title="Voltar ao chat com AI"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M19 12H5M12 19L5 12L12 5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </button>
+            )}
             <div className={styles.flagItem} onClick={() => handleFlagClick('portugal')}>
               <PortugalFlag />
             </div>
@@ -3212,7 +3191,7 @@ Geralmente responde em poucos minutos.
                                 if (target.tagName === 'A' && target.textContent?.includes('COMPRAR BILHETES ONLINE')) {
                                   e.preventDefault();
                                   alert('Botão COMPRAR BILHETES ONLINE clicado!');
-                                  console.log('Link clicado via onClick do container (chatbot principal)');
+                          
                                   
                                   const href = target.getAttribute('href');
                                   if (href) {
@@ -3303,8 +3282,12 @@ Geralmente responde em poucos minutos.
                     if (showHumanChat) {
                       setShowHumanChat(false);
                     }
-                    // Restaurar o scroll da página quando o popup for fechado
-                    document.body.style.overflow = 'auto';
+                        // Restaurar o scroll da página quando o popup for fechado
+    document.body.style.overflow = 'auto';
+    // No Android, forçar um reflow para garantir que o scroll seja restaurado
+    if (/android/i.test(navigator.userAgent)) {
+      document.body.offsetHeight; // Trigger reflow
+    }
                     // Mobile: Continuar vídeo automaticamente com som
                     if (videoRef.current && !isDesktop) {
                       videoRef.current.muted = false;
@@ -3636,9 +3619,94 @@ Geralmente responde em poucos minutos.
         </div>
       )}
 
+      {/* Popup de Confirmação para Fechar Chat */}
+      {showCloseConfirmation && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '10px',
+            padding: '25px',
+            boxShadow: '0 10px 30px rgba(0, 0, 0, 0.3)',
+            maxWidth: '350px',
+            width: '90%',
+            textAlign: 'center',
+            border: '1px solid #e0e0e0'
+          }}>
+            <h3 style={{
+              margin: '0 0 15px 0',
+              fontSize: '18px',
+              color: '#333',
+              fontWeight: '600'
+            }}>
+              Confirmar Saída
+            </h3>
+            <p style={{
+              margin: '0 0 20px 0',
+              fontSize: '14px',
+              color: '#666',
+              lineHeight: '1.4'
+            }}>
+              Tem a certeza que pretende sair da conversa com o guia real?
+            </p>
+            <div style={{
+              display: 'flex',
+              gap: '12px',
+              justifyContent: 'center'
+            }}>
+              <button 
+                onClick={handleCancelClose}
+                style={{
+                  padding: '10px 20px',
+                  backgroundColor: '#6c757d',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  transition: 'background-color 0.2s'
+                }}
+                onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#5a6268'}
+                onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#6c757d'}
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={handleConfirmClose}
+                style={{
+                  padding: '10px 20px',
+                  backgroundColor: '#dc3545',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  transition: 'background-color 0.2s'
+                }}
+                onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#c82333'}
+                onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#dc3545'}
+              >
+                Sim, Sair
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Picture-in-Picture Video para Mobile - Renderizado por último para ficar na frente */}
       {(() => {
-        console.log('PiP Render Check:', { isDesktop, showChatbotPopup, showHumanChat, pipVisible });
+    
         return !isDesktop && (showChatbotPopup || showHumanChat) && pipVisible;
       })() && (
         <div 
@@ -3655,7 +3723,7 @@ Geralmente responde em poucos minutos.
             const target = e.target as HTMLElement;
             if (target.tagName === 'A') {
               // Permitir que cliques em links passem através do PiP
-              console.log('Link clicado através do PiP:', target.textContent);
+      
               e.stopPropagation();
               e.preventDefault();
               // Simular o clique no link
@@ -3719,7 +3787,7 @@ Geralmente responde em poucos minutos.
           <button 
             className={styles.pipCloseButtonExterior}
             onClick={(e) => {
-              console.log('Botão de fechar PiP clicado!');
+      
               e.stopPropagation();
               handleClosePiP();
             }}

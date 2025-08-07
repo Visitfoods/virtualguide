@@ -5410,7 +5410,9 @@ a.secondary {
 
 @media (max-width: 1024px) {
   .welcomeOverlay {
-    /* Removida a imagem judite-com-fundo.jpg */
+    background: url('/judite-com-fundo.jpg') center center;
+    background-size: cover;
+    background-repeat: no-repeat;
   }
   
   .searchBar {
@@ -5479,7 +5481,9 @@ a.secondary {
 
 @media (max-width: 480px) {
   .welcomeOverlay {
-    /* Removida a imagem judite-com-fundo.jpg */
+    background: url('/judite-com-fundo.jpg') center center;
+    background-size: cover;
+    background-repeat: no-repeat;
   }
   
   .searchBar {
