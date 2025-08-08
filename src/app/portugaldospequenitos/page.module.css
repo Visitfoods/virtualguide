@@ -6291,7 +6291,8 @@ body:has(.guidePopupOverlay) {
            min-width: 120px;
            height: 36px;
            border-radius: 25px;
-           margin-left: 30px;
+           margin-left: 0;
+           order: -1; /* Coloca o botão primeiro (à esquerda) */
          }
 
          .backToChatButton .buttonText {
@@ -6301,11 +6302,20 @@ body:has(.guidePopupOverlay) {
          .flagsGroup {
            display: flex;
            gap: 15px;
-           padding-right: 20px!important;
          }
 
          .flagsContainer {
-           padding: 0 5px;
+           padding: 0 20px;
+         }
+
+         /* Quando o botão aparece, reorganizar o layout */
+         .flagsContainer:has(.backToChatButton) {
+           justify-content: space-between !important;
+           align-items: center;
+         }
+
+         .flagsContainer:has(.backToChatButton) .flagsGroup {
+           margin-left: auto;
          }
        }
 
@@ -6328,12 +6338,16 @@ body:has(.guidePopupOverlay) {
          }
 
          .flagsContainer {
-           justify-content: space-between !important;
-           align-items: center;
            padding: 0 12px;
          }
 
-         .flagsGroup {
+         /* Quando o botão aparece, reorganizar o layout */
+         .flagsContainer:has(.backToChatButton) {
+           justify-content: space-between !important;
+           align-items: center;
+         }
+
+         .flagsContainer:has(.backToChatButton) .flagsGroup {
            margin-left: auto;
          }
        }
@@ -6351,16 +6365,22 @@ body:has(.guidePopupOverlay) {
            font-size: 10px;
          }
 
-         /* Reorganizar as bandeiras para a direita em smartphone */
-         .flagsContainer {
-           justify-content: space-between !important;
-           align-items: center;
-           padding: 0 15px;
-         }
-
          .flagsGroup {
            display: flex;
            gap: 10px;
+         }
+
+         .flagsContainer {
+           padding: 0 15px;
+         }
+
+         /* Quando o botão aparece, reorganizar o layout */
+         .flagsContainer:has(.backToChatButton) {
+           justify-content: space-between !important;
+           align-items: center;
+         }
+
+         .flagsContainer:has(.backToChatButton) .flagsGroup {
            margin-left: auto;
          }
        }
@@ -6379,16 +6399,22 @@ body:has(.guidePopupOverlay) {
            font-size: 9px;
          }
 
-         /* Reorganizar as bandeiras para a direita em smartphone */
-         .flagsContainer {
-           justify-content: space-between !important;
-           align-items: center;
-           padding: 0 12px;
-         }
-
          .flagsGroup {
            display: flex;
            gap: 8px;
+         }
+
+         .flagsContainer {
+           padding: 0 12px;
+         }
+
+         /* Quando o botão aparece, reorganizar o layout */
+         .flagsContainer:has(.backToChatButton) {
+           justify-content: space-between !important;
+           align-items: center;
+         }
+
+         .flagsContainer:has(.backToChatButton) .flagsGroup {
            margin-left: auto;
          }
        }
@@ -6400,20 +6426,6 @@ body:has(.guidePopupOverlay) {
   font-size: 14px !important;
 }
 
-@media (min-width: 1025px) {
-  /* Alinhar bandeiras à direita em desktop quando chats estão fechados */
-  .flagsContainer {
-    justify-content: flex-end !important;
-    align-items: center;
-    width: 100% !important;
-    max-width: none !important;
-    margin: 0 !important;
-  }
 
-  /* Se o botão existir, fica à esquerda e as bandeiras à direita */
-  .backToChatButton {
-    margin-right: auto;
-  }
-}
 
 
