@@ -121,7 +121,7 @@ async function getSummary(conversation: ConversationMessage[]): Promise<string> 
           },
           ...conversation
         ],
-        model: "meta-llama/Meta-Llama-3.1-8B-Instruct",
+        model: "openai/gpt-oss-120b",
         max_tokens: 128,
         temperature: 0.3,
         top_p: 0.9
@@ -1492,6 +1492,9 @@ export default function Home() {
     // Detectar se é iOS
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
     
+    // Variável para rastrear se o blur foi causado pelo teclado virtual
+    let isVirtualKeyboardBlur = false;
+    
     const handleVisibilityChange = () => {
       if (document.hidden) {
         // Página ficou oculta - pausar vídeos
@@ -1545,6 +1548,31 @@ export default function Home() {
     };
 
     const handleWindowBlur = () => {
+      // Verificar se o blur foi causado pelo teclado virtual no iPhone
+      if (isIOS) {
+        // No iPhone, verificar se há um input focado
+        const activeElement = document.activeElement;
+        const isInputFocused = activeElement && (
+          activeElement.tagName === 'INPUT' || 
+          activeElement.tagName === 'TEXTAREA' ||
+          (activeElement as HTMLElement).contentEditable === 'true'
+        );
+        
+        // Se há um input focado, provavelmente é o teclado virtual
+        if (isInputFocused) {
+          isVirtualKeyboardBlur = true;
+          // Não pausar o vídeo quando o teclado virtual é fechado
+          return;
+        }
+        
+        // Verificar se o blur aconteceu rapidamente após um focus (indicativo de teclado virtual)
+        const now = Date.now();
+        if (now - (window as any).lastFocusTime < 1000) {
+          isVirtualKeyboardBlur = true;
+          return;
+        }
+      }
+      
       // Quando a janela perde foco, salvar estado e pausar vídeos
       if (videoRef.current) {
         setVideoStateBeforeBlur({
@@ -1566,6 +1594,15 @@ export default function Home() {
     };
 
     const handleWindowFocus = () => {
+      // Rastrear o tempo do focus para detectar teclado virtual
+      (window as any).lastFocusTime = Date.now();
+      
+      // Se o blur foi causado pelo teclado virtual, não restaurar o vídeo
+      if (isVirtualKeyboardBlur) {
+        isVirtualKeyboardBlur = false;
+        return;
+      }
+      
       // Quando a janela volta a ter foco, restaurar vídeos se apropriado
       if (!isDesktop && videoRef.current && !showGuidePopup && !showChatbotPopup && !showHumanChat) {
         // Restaurar o estado anterior do vídeo
@@ -1595,13 +1632,28 @@ export default function Home() {
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('blur', handleWindowBlur);
     window.addEventListener('focus', handleWindowFocus);
+    
+    // Adicionar listener específico para detectar quando o teclado virtual é fechado no iPhone
+    if (isIOS) {
+      const handleInputBlur = (e: Event) => {
+        const target = e.target as HTMLElement;
+        if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+          // Marcar que o próximo blur da janela pode ser do teclado virtual
+          isVirtualKeyboardBlur = true;
+        }
+      };
+      
+      document.addEventListener('blur', handleInputBlur, true);
+      
+      return () => {
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+        window.removeEventListener('blur', handleWindowBlur);
+        window.removeEventListener('focus', handleWindowFocus);
+        document.removeEventListener('blur', handleInputBlur, true);
+      };
+    }
 
-    // Cleanup
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('blur', handleWindowBlur);
-      window.removeEventListener('focus', handleWindowFocus);
-    };
+
   }, [isDesktop, showGuidePopup, showChatbotPopup, showHumanChat, savedVideoTime, videoStateBeforeBlur]);
 
   // Sincronizar PiP com o vídeo principal
@@ -1667,35 +1719,40 @@ export default function Home() {
 
   // Banco de conhecimento local para o chatbot
   const knowledgeBase = {
-    empresa: {
-      info: "A InforQuestion é uma empresa sediada em Leiria, com mais de 10 anos de experiência, especializada em sistemas de faturação, soluções informáticas e assistência técnica personalizada a clientes em Portugal.",
-      fundacao: "A InforQuestion foi constituída em dezembro de 2013, com cerca de 11 anos de atividade até 2024, e uma equipa com experiência profissional comprovada nos sistemas de faturação e tecnologia.",
-      missao: "A missão da InforQuestion é implementar soluções tecnológicas inovadoras e personalizadas, com acompanhamento 24/7, para aumentar a produtividade e competitividade dos clientes. Os seus valores incluem transparência, fiabilidade, consistência e compromisso com a excelência."
+    parque: {
+      info: "O Portugal dos Pequenitos é um parque temático único em Coimbra, Portugal, que oferece uma viagem mágica pela história e cultura portuguesa através de réplicas em miniatura dos monumentos mais emblemáticos do país.",
+      historia: "Fundado em 1940, o Portugal dos Pequenitos é um dos parques temáticos mais antigos e icónicos de Portugal, criado para mostrar às crianças a riqueza histórica e cultural do país de forma lúdica e educativa.",
+      missao: "A missão do Portugal dos Pequenitos é proporcionar uma experiência educativa e divertida, permitindo que visitantes de todas as idades descubram a história e cultura portuguesa através de réplicas em miniatura dos monumentos mais importantes."
     },
-    software: {
-      solucoes: "A InforQuestion disponibiliza soluções como Zone Soft e XD Software, para diversos setores (restauração, retalho, oficinas, hotelaria, táxis e mobilidade), adaptadas a cada modelo de negócio.",
-      escolha: "A equipa de consultores avalia o tipo de atividade do seu negócio e sugere a solução mais adequada. Contatam o cliente para uma análise personalizada.",
-      mobilidade: "Sim, a InforQuestion oferece opções incluindo faturação online e POS portátil para faturação em mobilidade."
+    atracoes: {
+      monumentos: "O parque apresenta réplicas em miniatura dos monumentos mais emblemáticos de Portugal, incluindo o Mosteiro dos Jerónimos, a Torre de Belém, o Palácio da Pena, e muitos outros monumentos históricos.",
+      areas: "O parque está dividido em várias áreas temáticas: Portugal Monumental, Casas Regionais, Portugal Insular, e Área de Coimbra, cada uma representando diferentes aspectos da cultura portuguesa.",
+      interativas: "Além das réplicas, o parque oferece experiências interativas, exposições temporárias, e atividades educativas para crianças e famílias."
     },
-    hardware: {
-      produtos: "A InforQuestion fornece pontos de venda (POS), impressoras térmicas, gavetas monetárias, monitores touch, scanners, balanças e terminais portáteis POS para empresas.",
-      avulso: "Sim. A empresa comercializa hardware avulso, embora também ofereça os pacotes completos com software e assistência, conforme a necessidade do cliente.",
-      assistencia: "Sim, a InforQuestion presta assistência técnica e suporte ao cliente, desde a implementação até ao acompanhamento contínuo, incluindo 24h de suporte pós-implementação."
+    visitas: {
+      duracao: "Uma visita típica ao Portugal dos Pequenitos demora entre 2 a 3 horas, dependendo do ritmo e interesse dos visitantes.",
+      melhor_epoca: "O parque é agradável de visitar durante todo o ano, mas a primavera e o outono oferecem temperaturas mais amenas para explorar os jardins e monumentos.",
+      acessibilidade: "O parque está preparado para receber visitantes com necessidades especiais, com percursos adaptados e instalações acessíveis."
     },
-    suporte: {
-      clientes: "A InforQuestion presta suporte a mais de 1.000 clientes em todo o território nacional, adaptando os serviços à realidade de cada negócio, seja de restauração ou comércio a retalho.",
-      posvenda: "Além da implementação, a InforQuestion garante suporte contínuo e rápido, com uma equipa especializada disponível após a instalação para resolver dúvidas ou problemas.",
-      custo: "A política de preços é competitiva e transparente. O suporte está incluído no pacote contratado e adaptado ao tipo de solução escolhida."
+    bilhetes: {
+      precos: "Os preços variam consoante a idade: entrada gratuita para crianças até 2 anos, preços especiais para crianças (3-12 anos), preços normais para adultos, e descontos para seniores.",
+      online: "É possível comprar bilhetes online com desconto e evitar filas na entrada. A compra antecipada é recomendada, especialmente em épocas de maior afluência.",
+      grupos: "Para grupos e escolas, é necessária reserva prévia através dos contactos oficiais do parque."
     },
     contacto: {
       morada: "O Portugal dos Pequenitos fica no Largo Rossio de Santa Clara, 3040-256 Coimbra, Portugal.",
       telefone: "+351 239 801 170",
-      email: "geral@inforquestion.pt"
+      email: "portugalpequenitos@fbb.pt"
     },
-    outros: {
-      setores: "A InforQuestion atua em restauração, retalho, oficinas, hotelaria, táxis e mobilidade, sempre com soluções ajustadas às necessidades específicas de cada setor.",
-      parceiros: "Sim, a InforQuestion mantém parcerias com fornecedores de software como Zone Soft, XD Software, e distribuidores de hardware tecnológicos reconhecidos no mercado.",
-      termos: "No rodapé do site estão disponíveis os Termos e Condições e a Resolução de Litígios Online."
+    horarios: {
+      funcionamento: "O parque está aberto todos os dias, com horários que variam consoante a época do ano. A última entrada é 30 minutos antes do fecho.",
+      epocas: "Durante o verão, o parque tem horários alargados. No inverno, os horários são mais reduzidos. Recomenda-se consultar o site oficial para horários atualizados.",
+      fechado: "O parque fecha apenas em dias especiais como o Natal e Ano Novo. Recomenda-se confirmar os horários antes da visita."
+    },
+    servicos: {
+      restaurantes: "O parque dispõe de restaurantes e cafés onde os visitantes podem fazer uma pausa e saborear refeições tradicionais portuguesas.",
+      lojas: "Existem lojas de souvenirs com produtos temáticos relacionados com a história e cultura portuguesa.",
+      estacionamento: "O parque dispõe de estacionamento gratuito para os visitantes."
     }
   };
 
@@ -1748,56 +1805,56 @@ export default function Home() {
   function generateLocalResponse(userMessage: string): string {
     const message = userMessage.toLowerCase();
     
-    // Verificar empresa
-    if (message.includes('inforquestion') || message.includes('empresa') || message.includes('quem')) {
-      return knowledgeBase.empresa.info;
+    // Verificar parque
+    if (message.includes('portugal dos pequenitos') || message.includes('parque') || message.includes('quem') || message.includes('o que é')) {
+      return knowledgeBase.parque.info;
     }
     
-    if (message.includes('fundada') || message.includes('fundação') || message.includes('experiência') || message.includes('anos')) {
-      return knowledgeBase.empresa.fundacao;
+    if (message.includes('história') || message.includes('historia') || message.includes('fundado') || message.includes('1940')) {
+      return knowledgeBase.parque.historia;
     }
     
-    if (message.includes('missão') || message.includes('valores') || message.includes('objetivo')) {
-      return knowledgeBase.empresa.missao;
+    if (message.includes('missão') || message.includes('missao') || message.includes('objetivo')) {
+      return knowledgeBase.parque.missao;
     }
     
-    // Verificar software
-    if (message.includes('software') || message.includes('programa') || message.includes('solução')) {
-      return knowledgeBase.software.solucoes;
+    // Verificar atrações
+    if (message.includes('monumento') || message.includes('réplica') || message.includes('replica') || message.includes('miniatura')) {
+      return knowledgeBase.atracoes.monumentos;
     }
     
-    if (message.includes('escolher') || message.includes('adequado') || message.includes('melhor software')) {
-      return knowledgeBase.software.escolha;
+    if (message.includes('área') || message.includes('area') || message.includes('tematico') || message.includes('tematico')) {
+      return knowledgeBase.atracoes.areas;
     }
     
-    if (message.includes('online') || message.includes('mobilidade') || message.includes('portátil')) {
-      return knowledgeBase.software.mobilidade;
+    if (message.includes('interativo') || message.includes('interatividade') || message.includes('experiência')) {
+      return knowledgeBase.atracoes.interativas;
     }
     
-    // Verificar hardware
-    if (message.includes('hardware') || message.includes('equipamento') || message.includes('pos')) {
-      return knowledgeBase.hardware.produtos;
+    // Verificar visitas
+    if (message.includes('duração') || message.includes('duracao') || message.includes('tempo') || message.includes('horas')) {
+      return knowledgeBase.visitas.duracao;
     }
     
-    if (message.includes('avulso') || message.includes('só hardware') || message.includes('sem software')) {
-      return knowledgeBase.hardware.avulso;
+    if (message.includes('melhor época') || message.includes('melhor epoca') || message.includes('quando visitar') || message.includes('estação')) {
+      return knowledgeBase.visitas.melhor_epoca;
     }
     
-    if (message.includes('assistência') || message.includes('técnica') || message.includes('reparação')) {
-      return knowledgeBase.hardware.assistencia;
+    if (message.includes('acessibilidade') || message.includes('necessidades especiais') || message.includes('deficiência')) {
+      return knowledgeBase.visitas.acessibilidade;
     }
     
-    // Verificar suporte
-    if (message.includes('quantos clientes') || message.includes('zonas')) {
-      return knowledgeBase.suporte.clientes;
+    // Verificar bilhetes
+    if (message.includes('preço') || message.includes('preco') || message.includes('custo') || message.includes('valor')) {
+      return knowledgeBase.bilhetes.precos;
     }
     
-    if (message.includes('pós-venda') || message.includes('após compra') || message.includes('depois de comprar')) {
-      return knowledgeBase.suporte.posvenda;
+    if (message.includes('online') || message.includes('comprar') || message.includes('reserva')) {
+      return knowledgeBase.bilhetes.online;
     }
     
-    if (message.includes('custo') || message.includes('preço') || message.includes('valor')) {
-      return knowledgeBase.suporte.custo;
+    if (message.includes('grupo') || message.includes('escola') || message.includes('turma')) {
+      return knowledgeBase.bilhetes.grupos;
     }
     
     // Verificar contacto
@@ -1870,31 +1927,44 @@ Geralmente responde em poucos minutos.
 **[FALAR COM GUIA REAL](#guia-real)**`;
     }
     
-    // Verificar outros
-    if (message.includes('setor') || message.includes('indústria') || message.includes('área')) {
-      return knowledgeBase.outros.setores;
+    // Verificar horários
+    if (message.includes('horário') || message.includes('horario') || message.includes('aberto') || message.includes('fechado')) {
+      return knowledgeBase.horarios.funcionamento;
     }
     
-    if (message.includes('parceiro') || message.includes('marca') || message.includes('fornecedor')) {
-      return knowledgeBase.outros.parceiros;
+    if (message.includes('época') || message.includes('epoca') || message.includes('verão') || message.includes('inverno')) {
+      return knowledgeBase.horarios.epocas;
     }
     
-    if (message.includes('termo') || message.includes('condição') || message.includes('política')) {
-      return knowledgeBase.outros.termos;
+    if (message.includes('fechado') || message.includes('natal') || message.includes('ano novo')) {
+      return knowledgeBase.horarios.fechado;
+    }
+    
+    // Verificar serviços
+    if (message.includes('restaurante') || message.includes('café') || message.includes('comida')) {
+      return knowledgeBase.servicos.restaurantes;
+    }
+    
+    if (message.includes('loja') || message.includes('souvenir') || message.includes('comprar')) {
+      return knowledgeBase.servicos.lojas;
+    }
+    
+    if (message.includes('estacionamento') || message.includes('parque') || message.includes('carro')) {
+      return knowledgeBase.servicos.estacionamento;
     }
     
     // Saudações e despedidas
     if (message.includes('olá') || message.includes('oi') || message.includes('bom dia') || 
         message.includes('boa tarde') || message.includes('boa noite')) {
-      return "Olá! Sou o assistente virtual da InforQuestion. Como posso ajudar?";
+      return "Olá! Sou o assistente virtual do Portugal dos Pequenitos. Como posso ajudar?";
     }
     
     if (message.includes('obrigado') || message.includes('adeus') || message.includes('até logo')) {
-      return "Obrigado por contactar a InforQuestion! Estamos sempre disponíveis para ajudar. Tenha um excelente dia!";
+      return "Obrigado por contactar o Portugal dos Pequenitos! Estamos sempre disponíveis para ajudar. Tenha um excelente dia!";
     }
     
     // Resposta genérica
-    return "Obrigado pela sua pergunta. O Portugal dos Pequenitos é um parque temático único em Coimbra. Para mais informações específicas, pode contactar-nos através do telefone +351 239 801 170 ou visitar-nos em Coimbra.";
+    return "Obrigado pela sua pergunta. O Portugal dos Pequenitos é um parque temático único em Coimbra que oferece uma viagem mágica pela história e cultura portuguesa. Para mais informações, pode contactar-nos através do telefone +351 239 801 170 ou visitar-nos em Coimbra.";
   }
 
   // Função para chamar a API do Hyperbolic AI
