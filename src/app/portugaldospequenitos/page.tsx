@@ -2903,8 +2903,8 @@ Geralmente responde em poucos minutos.
         {/* Barra de bandeiras no topo */}
         <div className={styles.flagsBar}>
           <div className={styles.flagsContainer}>
-            {/* Botão de voltar para smartphone - só aparece quando há conversa no chat com AI */}
-            {isMobile && chatbotMessages.length > 0 && (
+            {/* Botão de voltar para chat - aparece quando há conversa no chat com AI e não há chats abertos */}
+            {chatbotMessages.length > 0 && !showChatbotPopup && !showHumanChat && (
               <button 
                 className={styles.backToChatButton}
                 onClick={() => {
@@ -2914,11 +2914,10 @@ Geralmente responde em poucos minutos.
                     videoRef.current.pause();
                   }
                 }}
-                title="Voltar ao chat com AI"
+                title="Voltar ao chat"
+                aria-label="Voltar ao chat"
               >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M19 12H5M12 19L5 12L12 5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
+                <span className={styles.buttonText}>voltar ao chat</span>
               </button>
             )}
             <div className={styles.flagItem} onClick={() => handleFlagClick('portugal')}>
