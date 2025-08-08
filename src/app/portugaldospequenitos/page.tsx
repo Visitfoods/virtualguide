@@ -422,10 +422,20 @@ export default function Home() {
   const [currentConversation, setCurrentConversation] = useState<Conversation | null>(null);
   const [humanChatMessages, setHumanChatMessages] = useState<ChatMessage[]>([]);
   const [humanChatInput, setHumanChatInput] = useState('');
+  // Funções para gerir a preferência de som
+  const saveMutePreference = (isMuted: boolean) => {
+    localStorage.setItem('virtualGuide_mutePreference', JSON.stringify(isMuted));
+  };
+
+  const loadMutePreference = (): boolean => {
+    const saved = localStorage.getItem('virtualGuide_mutePreference');
+    return saved ? JSON.parse(saved) : false; // Por padrão, com som
+  };
+
   const [humanChatSubmitting, setHumanChatSubmitting] = useState(false);
   const [hasActiveSession, setHasActiveSession] = useState(false);
   const [showCloseConfirmation, setShowCloseConfirmation] = useState(false);
-  const [videoMuted, setVideoMuted] = useState(false);
+  const [videoMuted, setVideoMuted] = useState(() => loadMutePreference());
   const [videoPlaying, setVideoPlaying] = useState(false);
   const [pipVideoPlaying, setPipVideoPlaying] = useState(false);
   const [pipPosition, setPipPosition] = useState({ x: 20, y: 20 });
@@ -473,7 +483,7 @@ export default function Home() {
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [pipExpanded, setPipExpanded] = useState(false);
   const [pipVisible, setPipVisible] = useState(false);
-  const [pipMuted, setPipMuted] = useState(false);
+  const [pipMuted, setPipMuted] = useState(false); // Sempre seguir o vídeo principal
   const [savedVideoTime, setSavedVideoTime] = useState(0);
   const [shouldSaveTime, setShouldSaveTime] = useState(false);
   const [videoStateBeforeBlur, setVideoStateBeforeBlur] = useState({
@@ -752,8 +762,8 @@ export default function Home() {
                   setVideoPlaying(false);
                 } else {
                   // Smartphone: Continuar vídeo onde estava
-                  videoRef.current.muted = false;
-                  setVideoMuted(false);
+                  videoRef.current.muted = videoMuted; // Respeitar preferência salva
+                  setVideoMuted(videoMuted);
                   videoRef.current.play();
                   setVideoPlaying(true);
                 }
@@ -1037,8 +1047,8 @@ export default function Home() {
                   setVideoPlaying(false);
                 } else {
                   // Smartphone: Continuar vídeo onde estava
-                  videoRef.current.muted = false;
-                  setVideoMuted(false);
+                  videoRef.current.muted = videoMuted; // Respeitar preferência salva
+                  setVideoMuted(videoMuted);
                   videoRef.current.play();
                   setVideoPlaying(true);
                 }
@@ -1159,7 +1169,7 @@ export default function Home() {
             const timeToUse = savedVideoTime > 0 ? savedVideoTime : videoRef.current.currentTime || 0;
 
             pipVideoRef.current.currentTime = timeToUse;
-            pipVideoRef.current.muted = false; // Garantir som no PiP
+            pipVideoRef.current.muted = videoMuted; // Seguir a preferência do vídeo principal
             
             // Pausar o vídeo principal primeiro
             videoRef.current.pause();
@@ -1201,8 +1211,8 @@ export default function Home() {
       if (!isDesktop && videoRef.current && !showGuidePopup && !showChatbotPopup && !showHumanChat) {
         const currentTime = pipVideoRef.current?.currentTime || savedVideoTime || 0;
         videoRef.current.currentTime = currentTime;
-        videoRef.current.muted = false; // Retomar com som
-        setVideoMuted(false);
+                  videoRef.current.muted = videoMuted; // Respeitar preferência salva
+          setVideoMuted(videoMuted);
         
         videoRef.current.play().then(() => {
           setVideoPlaying(true);
@@ -1367,10 +1377,14 @@ export default function Home() {
 
   // Função para alternar o mute do vídeo PiP
   const handleTogglePiPMute = () => {
-    if (pipVideoRef.current) {
-      const newMutedState = !pipMuted;
-      pipVideoRef.current.muted = newMutedState;
-      setPipMuted(newMutedState);
+    // O PiP sempre segue o vídeo principal, então alternar o vídeo principal
+    if (videoRef.current) {
+      const newMutedState = !videoRef.current.muted;
+      videoRef.current.muted = newMutedState;
+      setVideoMuted(newMutedState);
+      
+      // Salvar a preferência
+      saveMutePreference(newMutedState);
     }
   };
 
@@ -1584,6 +1598,24 @@ export default function Home() {
       window.removeEventListener('focus', handleWindowFocus);
     };
   }, [isDesktop, showGuidePopup, showChatbotPopup, showHumanChat, savedVideoTime, videoStateBeforeBlur]);
+
+  // Sincronizar PiP com o vídeo principal
+  useEffect(() => {
+    setPipMuted(videoMuted);
+    if (pipVideoRef.current) {
+      pipVideoRef.current.muted = videoMuted;
+    }
+  }, [videoMuted]);
+
+  // Aplicar preferência de som aos vídeos quando carregam
+  useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.muted = videoMuted;
+    }
+    if (pipVideoRef.current) {
+      pipVideoRef.current.muted = videoMuted; // Sempre seguir o vídeo principal
+    }
+  }, [videoMuted]);
 
   // Ativar legendas quando os vídeos carregam
   useEffect(() => {
@@ -2395,8 +2427,12 @@ Geralmente responde em poucos minutos.
 
   function handleToggleMute() {
     if (videoRef.current) {
-      videoRef.current.muted = !videoRef.current.muted;
-      setVideoMuted(!videoMuted);
+      const newMutedState = !videoRef.current.muted;
+      videoRef.current.muted = newMutedState;
+      setVideoMuted(newMutedState);
+      
+      // Salvar a preferência
+      saveMutePreference(newMutedState);
     }
   }
 
@@ -2482,8 +2518,8 @@ Geralmente responde em poucos minutos.
         setVideoPlaying(false);
       } else {
         // Mobile: Continuar vídeo automaticamente com som
-        videoRef.current.muted = false;
-        setVideoMuted(false);
+        videoRef.current.muted = videoMuted; // Respeitar preferência salva
+        setVideoMuted(videoMuted);
         videoRef.current.play();
         setVideoPlaying(true);
       }
@@ -2863,8 +2899,8 @@ Geralmente responde em poucos minutos.
           setVideoPlaying(false);
         } else {
           // Mobile: Continuar vídeo automaticamente com som
-          videoRef.current.muted = false;
-          setVideoMuted(false);
+          videoRef.current.muted = videoMuted; // Respeitar preferência salva
+          setVideoMuted(videoMuted);
           videoRef.current.play();
           setVideoPlaying(true);
         }
@@ -3416,8 +3452,8 @@ Geralmente responde em poucos minutos.
     }
                     // Mobile: Continuar vídeo automaticamente com som
                     if (videoRef.current && !isDesktop) {
-                      videoRef.current.muted = false;
-                      setVideoMuted(false);
+                      videoRef.current.muted = videoMuted; // Respeitar preferência salva
+                      setVideoMuted(videoMuted);
                       videoRef.current.play();
                       setVideoPlaying(true);
                     }
@@ -3904,9 +3940,9 @@ Geralmente responde em poucos minutos.
                 e.stopPropagation();
                 handleTogglePiPMute();
               }}
-              aria-label={pipMuted ? "Ativar som" : "Silenciar"}
+                              aria-label={videoMuted ? "Ativar som" : "Silenciar"}
             >
-              <VolumeIcon muted={pipMuted} />
+                              <VolumeIcon muted={videoMuted} />
             </button>
           </div>
           {/* Botão de fechar colado ao PiP */}
