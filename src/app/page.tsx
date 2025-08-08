@@ -81,13 +81,11 @@ function BackIcon() {
 
 export default function Home() {
   // Estados para a interface
-  const [showStartButton, setShowStartButton] = useState(false);
   const [showChatbotPopup, setShowChatbotPopup] = useState(false);
   const [showGuidePopup, setShowGuidePopup] = useState(false);
   const [chatbotMessages, setChatbotMessages] = useState<Array<{from: 'user' | 'bot', text: string}>>([]);
   const [showInstructions, setShowInstructions] = useState(true);
   const [showChatbotWelcome, setShowChatbotWelcome] = useState(true);
-  const [isDesktop, setIsDesktop] = useState(false);
   const [formName, setFormName] = useState('');
   const [formContact, setFormContact] = useState('');
   const [formSubmitting, setFormSubmitting] = useState(false);
@@ -96,19 +94,7 @@ export default function Home() {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const chatbotInputRef = useRef<HTMLInputElement>(null);
 
-  // Detectar se é desktop
-  useEffect(() => {
-    const checkIsDesktop = () => {
-      setIsDesktop(window.innerWidth >= 1025);
-    };
-    
-    checkIsDesktop();
-    window.addEventListener('resize', checkIsDesktop);
-    
-    return () => {
-      window.removeEventListener('resize', checkIsDesktop);
-    };
-  }, []);
+
 
   // Carregar conversationId do localStorage
   useEffect(() => {
@@ -474,9 +460,7 @@ Always Respond in European Portuguese
     }
   }
 
-  function handleTalkToMe() {
-    setShowGuidePopup(true);
-  }
+
 
   function handleSearchBarClick() {
     // Se já existe uma conversa ativa, abrir diretamente o chat
@@ -516,14 +500,22 @@ Always Respond in European Portuguese
       setShowChatbotWelcome(false);
     }
     
-    const userMessage: ChatMessage = { from: 'user', text: chatbotInput };
+    const userMessage: ChatMessage = { 
+      from: 'user', 
+      text: chatbotInput,
+      timestamp: new Date().toISOString()
+    };
     setChatbotMessages(prev => [...prev, userMessage]);
     
     if (chatbotInputRef.current) {
       chatbotInputRef.current.value = "";
     }
     
-    setChatbotMessages(prev => [...prev, { from: 'bot', text: '...' }]);
+    setChatbotMessages(prev => [...prev, { 
+      from: 'bot', 
+      text: '...',
+      timestamp: new Date().toISOString()
+    }]);
     
     try {
       // Guardar mensagem do utilizador no Firebase
@@ -532,7 +524,11 @@ Always Respond in European Portuguese
       }
       
       const response = await callHyperbolicAI(chatbotInput);
-      const botMessage: ChatMessage = { from: 'bot', text: response };
+      const botMessage: ChatMessage = { 
+        from: 'bot', 
+        text: response,
+        timestamp: new Date().toISOString()
+      };
       
       setChatbotMessages(prev => {
         const newMessages = [...prev];
@@ -553,7 +549,8 @@ Always Respond in European Portuguese
       console.error('Erro ao processar resposta:', error);
       const errorMessage: ChatMessage = { 
         from: 'bot', 
-        text: "Desculpe, estou com dificuldades técnicas neste momento. Pode tentar novamente ou contactar-nos diretamente através do telefone +351 239 801 170." 
+        text: "Desculpe, estou com dificuldades técnicas neste momento. Pode tentar novamente ou contactar-nos diretamente através do telefone +351 239 801 170.",
+        timestamp: new Date().toISOString()
       };
       
       setChatbotMessages(prev => {
