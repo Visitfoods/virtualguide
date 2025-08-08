@@ -4144,7 +4144,7 @@ a.secondary {
   justify-content: center;
   align-items: center;
   gap: 40px;
-  max-width: 400px;
+  max-width: 100%;
   margin: 0 auto;
   transition: all 0.3s ease;
   position: relative;
@@ -5804,7 +5804,7 @@ body:has(.guidePopupOverlay) {
   
   .chatbotHeaderSubtitle {
     text-align: right;
-  }
+}
 }
 
 /* Layout para smartphone - texto "Bem-vindo" em cima do botão "voltar" no lado esquerdo */
@@ -6121,25 +6121,25 @@ body:has(.guidePopupOverlay) {
 }
 
 /* Botão voltar ao chat - aparece junto às bandeiras em smartphone */
-.backToChatButton {
-  background: linear-gradient(135deg, #51aecd 0%, #cb3c58 100%);
-  background-size: 200% 200%;
-  border: none;
-  border-radius: 20px;
-  padding: 6px 12px;
-  display: flex !important;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 15px rgba(81, 174, 205, 0.4);
-  position: relative;
-  overflow: visible !important;
-  min-width: 100px;
-  height: 32px;
-  animation: buttonAppear 0.5s ease-out, gradientShift 3s ease-in-out infinite, buttonPulseContinuous 2s ease-in-out infinite;
-  margin-left: 20px;
-}
+       .backToChatButton {
+         background: linear-gradient(135deg, #51aecd 0%, #cb3c58 100%);
+         background-size: 200% 200%;
+         border: none;
+         border-radius: 20px;
+         padding: 6px 12px;
+         display: flex !important;
+         align-items: center;
+         justify-content: center;
+         cursor: pointer;
+         transition: all 0.3s ease;
+         box-shadow: 0 4px 15px rgba(81, 174, 205, 0.4);
+         position: relative;
+         overflow: visible !important;
+         min-width: 100px;
+         height: 32px;
+         animation: buttonAppear 0.5s ease-out, gradientShift 3s ease-in-out infinite, buttonPulseContinuous 2s ease-in-out infinite;
+         margin-left: 0;
+       }
 
 .backToChatButton::after {
   content: '';
@@ -6284,66 +6284,136 @@ body:has(.guidePopupOverlay) {
 
 
 
-/* Responsividade para o botão voltar ao chat */
-@media (min-width: 1025px) {
-  .backToChatButton {
-    padding: 8px 16px;
-    min-width: 120px;
-    height: 36px;
-    border-radius: 25px;
-    margin-left: 30px;
-  }
-  
-  .backToChatButton .buttonText {
-    font-size: 11px;
-  }
-}
+       /* Responsividade para o botão voltar ao chat */
+       @media (min-width: 1025px) {
+         .backToChatButton {
+           padding: 8px 16px;
+           min-width: 120px;
+           height: 36px;
+           border-radius: 25px;
+           margin-left: 30px;
+         }
 
-@media (max-width: 1024px) and (min-width: 701px) {
-  .backToChatButton {
-    padding: 6px 12px;
-    min-width: 100px;
-    height: 30px;
-    margin-left: 25px;
-  }
-  
-  .backToChatButton .buttonText {
-    font-size: 10px;
-  }
-}
+         .backToChatButton .buttonText {
+           font-size: 11px;
+         }
 
-@media (max-width: 700px) {
-  .backToChatButton {
-    padding: 5px 10px;
-    min-width: 90px;
-    height: 28px;
-    margin-left: 15px;
-  }
-  
-  .backToChatButton .buttonText {
-    font-size: 10px;
-  }
-}
+         .flagsGroup {
+           display: flex;
+           gap: 15px;
+           padding-right: 20px!important;
+         }
 
-@media (max-width: 500px) {
-  .backToChatButton {
-    padding: 4px 8px;
-    min-width: 80px;
-    height: 26px;
-    border-radius: 16px;
-    margin-left: 10px;
-  }
-  
-  .backToChatButton .buttonText {
-    font-size: 9px;
-  }
-}
+         .flagsContainer {
+           padding: 0 5px;
+         }
+       }
+
+       @media (max-width: 1024px) and (min-width: 701px) {
+         .backToChatButton {
+           padding: 6px 12px;
+           min-width: 100px;
+           height: 30px;
+           margin-left: 0;
+           order: -1; /* Coloca o botão primeiro (à esquerda) */
+         }
+
+         .backToChatButton .buttonText {
+           font-size: 10px;
+         }
+
+         .flagsGroup {
+           display: flex;
+           gap: 8px;
+         }
+
+         .flagsContainer {
+           justify-content: space-between !important;
+           align-items: center;
+           padding: 0 12px;
+         }
+
+         .flagsGroup {
+           margin-left: auto;
+         }
+       }
+
+       @media (max-width: 700px) {
+         .backToChatButton {
+           padding: 5px 10px;
+           min-width: 90px;
+           height: 28px;
+           margin-left: 0;
+           order: -1; /* Coloca o botão primeiro (à esquerda) */
+         }
+
+         .backToChatButton .buttonText {
+           font-size: 10px;
+         }
+
+         /* Reorganizar as bandeiras para a direita em smartphone */
+         .flagsContainer {
+           justify-content: space-between !important;
+           align-items: center;
+           padding: 0 15px;
+         }
+
+         .flagsGroup {
+           display: flex;
+           gap: 10px;
+           margin-left: auto;
+         }
+       }
+
+       @media (max-width: 500px) {
+         .backToChatButton {
+           padding: 4px 8px;
+           min-width: 80px;
+           height: 26px;
+           border-radius: 16px;
+           margin-left: 0;
+           order: -1; /* Coloca o botão primeiro (à esquerda) */
+         }
+
+         .backToChatButton .buttonText {
+           font-size: 9px;
+         }
+
+         /* Reorganizar as bandeiras para a direita em smartphone */
+         .flagsContainer {
+           justify-content: space-between !important;
+           align-items: center;
+           padding: 0 12px;
+         }
+
+         .flagsGroup {
+           display: flex;
+           gap: 8px;
+           margin-left: auto;
+         }
+       }
 
 .humanButton {
   max-width: 250px !important;
   min-width: 150px !important;
   padding: 10px 24px !important;
   font-size: 14px !important;
+}
+
+@media (min-width: 1025px) {
+  /* Alinhar bandeiras à direita em desktop quando chats estão fechados */
+  .flagsContainer {
+    justify-content: flex-end !important;
+    align-items: center;
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+  }
+
+  /* Se o botão existir, fica à esquerda e as bandeiras à direita */
+  .backToChatButton {
+    margin-right: auto;
+  }
 }
 
 

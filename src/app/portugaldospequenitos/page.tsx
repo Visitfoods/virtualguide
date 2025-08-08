@@ -476,6 +476,11 @@ export default function Home() {
   const [pipMuted, setPipMuted] = useState(false);
   const [savedVideoTime, setSavedVideoTime] = useState(0);
   const [shouldSaveTime, setShouldSaveTime] = useState(false);
+  const [videoStateBeforeBlur, setVideoStateBeforeBlur] = useState({
+    wasPlaying: false,
+    currentTime: 0,
+    wasMuted: false
+  });
   const [pipManuallyClosed, setPipManuallyClosed] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
   const [isTablet, setIsTablet] = useState(false);
@@ -1462,6 +1467,123 @@ export default function Home() {
       window.removeEventListener('pagehide', handlePageHide);
     };
   }, [hasActiveSession]); // Executar quando o status da sessão mudar
+
+    // Gestão de vídeos quando a página perde/ganha foco (especialmente importante para iOS)
+  useEffect(() => {
+    // Detectar se é iOS
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        // Página ficou oculta - pausar vídeos
+        if (videoRef.current && !videoRef.current.paused) {
+          videoRef.current.pause();
+          setVideoPlaying(false);
+        }
+        if (pipVideoRef.current && !pipVideoRef.current.paused) {
+          pipVideoRef.current.pause();
+          setPipVideoPlaying(false);
+        }
+      } else {
+        // Página voltou a ficar visível - restaurar estado dos vídeos
+        if (!isDesktop && videoRef.current && !showGuidePopup && !showChatbotPopup && !showHumanChat) {
+          // Em mobile, restaurar o vídeo principal se não há popups abertos
+                      if (isIOS) {
+              // Em iOS, usar o estado salvo antes do blur
+              if (videoStateBeforeBlur.wasPlaying) {
+                videoRef.current.currentTime = videoStateBeforeBlur.currentTime;
+                videoRef.current.muted = videoStateBeforeBlur.wasMuted;
+                
+                // Garantir que o vídeo principal está a ser reproduzido (não o Judite_2.mp4)
+                if (videoRef.current.src && videoRef.current.src.includes('VirtualGuide_PortugaldosPequeninos.webm')) {
+                  videoRef.current.play().then(() => {
+                    setVideoPlaying(true);
+                  }).catch((error) => {
+                    console.log('Erro ao retomar vídeo em iOS:', error);
+                  });
+                }
+              }
+            } else {
+            // Em outros dispositivos, usar o tempo do PiP ou salvo
+            const currentTime = pipVideoRef.current?.currentTime || savedVideoTime || 0;
+            videoRef.current.currentTime = currentTime;
+            videoRef.current.muted = false;
+            
+            videoRef.current.play().then(() => {
+              setVideoPlaying(true);
+            }).catch((error) => {
+              console.log('Erro ao retomar vídeo:', error);
+            });
+          }
+          
+          // Pausar PiP se estiver ativo
+          if (pipVideoRef.current) {
+            pipVideoRef.current.pause();
+            setPipVideoPlaying(false);
+          }
+        }
+      }
+    };
+
+    const handleWindowBlur = () => {
+      // Quando a janela perde foco, salvar estado e pausar vídeos
+      if (videoRef.current) {
+        setVideoStateBeforeBlur({
+          wasPlaying: !videoRef.current.paused,
+          currentTime: videoRef.current.currentTime,
+          wasMuted: videoRef.current.muted
+        });
+        
+        if (!videoRef.current.paused) {
+          videoRef.current.pause();
+          setVideoPlaying(false);
+        }
+      }
+      
+      if (pipVideoRef.current && !pipVideoRef.current.paused) {
+        pipVideoRef.current.pause();
+        setPipVideoPlaying(false);
+      }
+    };
+
+    const handleWindowFocus = () => {
+      // Quando a janela volta a ter foco, restaurar vídeos se apropriado
+      if (!isDesktop && videoRef.current && !showGuidePopup && !showChatbotPopup && !showHumanChat) {
+        // Restaurar o estado anterior do vídeo
+        if (videoStateBeforeBlur.wasPlaying) {
+          videoRef.current.currentTime = videoStateBeforeBlur.currentTime;
+          videoRef.current.muted = videoStateBeforeBlur.wasMuted;
+          
+          // Garantir que o vídeo principal está a ser reproduzido (não o Judite_2.mp4)
+          if (videoRef.current.src && videoRef.current.src.includes('VirtualGuide_PortugaldosPequeninos.webm')) {
+            videoRef.current.play().then(() => {
+              setVideoPlaying(true);
+            }).catch((error) => {
+              console.log('Erro ao retomar vídeo:', error);
+            });
+          }
+        }
+        
+        // Pausar PiP se estiver ativo
+        if (pipVideoRef.current) {
+          pipVideoRef.current.pause();
+          setPipVideoPlaying(false);
+        }
+      }
+    };
+
+    // Adicionar event listeners
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('blur', handleWindowBlur);
+    window.addEventListener('focus', handleWindowFocus);
+
+    // Cleanup
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('blur', handleWindowBlur);
+      window.removeEventListener('focus', handleWindowFocus);
+    };
+  }, [isDesktop, showGuidePopup, showChatbotPopup, showHumanChat, savedVideoTime, videoStateBeforeBlur]);
 
   // Ativar legendas quando os vídeos carregam
   useEffect(() => {
@@ -2917,20 +3039,22 @@ Geralmente responde em poucos minutos.
                 title="Voltar ao chat"
                 aria-label="Voltar ao chat"
               >
-                <span className={styles.buttonText}>voltar ao chat</span>
+                <span className={styles.buttonText}>voltar conversa</span>
               </button>
             )}
-            <div className={styles.flagItem} onClick={() => handleFlagClick('portugal')}>
-              <PortugalFlag />
-            </div>
-            <div className={styles.flagItem} onClick={() => handleFlagClick('england')}>
-              <EnglandFlag />
-            </div>
-            <div className={styles.flagItem} onClick={() => handleFlagClick('spain')}>
-              <SpainFlag />
-            </div>
-            <div className={styles.flagItem} onClick={() => handleFlagClick('france')}>
-              <FranceFlag />
+            <div className={styles.flagsGroup}>
+              <div className={styles.flagItem} onClick={() => handleFlagClick('portugal')}>
+                <PortugalFlag />
+              </div>
+              <div className={styles.flagItem} onClick={() => handleFlagClick('england')}>
+                <EnglandFlag />
+              </div>
+              <div className={styles.flagItem} onClick={() => handleFlagClick('spain')}>
+                <SpainFlag />
+              </div>
+              <div className={styles.flagItem} onClick={() => handleFlagClick('france')}>
+                <FranceFlag />
+              </div>
             </div>
           </div>
         </div>
