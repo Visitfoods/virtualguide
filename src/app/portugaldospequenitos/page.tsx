@@ -424,12 +424,17 @@ export default function Home() {
   const [humanChatInput, setHumanChatInput] = useState('');
   // Funções para gerir a preferência de som
   const saveMutePreference = (isMuted: boolean) => {
-    localStorage.setItem('virtualGuide_mutePreference', JSON.stringify(isMuted));
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('virtualGuide_mutePreference', JSON.stringify(isMuted));
+    }
   };
 
   const loadMutePreference = (): boolean => {
-    const saved = localStorage.getItem('virtualGuide_mutePreference');
-    return saved ? JSON.parse(saved) : false; // Por padrão, com som
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('virtualGuide_mutePreference');
+      return saved ? JSON.parse(saved) : false; // Por padrão, com som
+    }
+    return false; // Por padrão, com som se localStorage não estiver disponível
   };
 
   const [humanChatSubmitting, setHumanChatSubmitting] = useState(false);
@@ -483,7 +488,7 @@ export default function Home() {
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [pipExpanded, setPipExpanded] = useState(false);
   const [pipVisible, setPipVisible] = useState(false);
-  const [pipMuted, setPipMuted] = useState(false); // Sempre seguir o vídeo principal
+  // Removido pipMuted pois o PiP sempre segue o vídeo principal
   const [savedVideoTime, setSavedVideoTime] = useState(0);
   const [shouldSaveTime, setShouldSaveTime] = useState(false);
   const [videoStateBeforeBlur, setVideoStateBeforeBlur] = useState({
@@ -739,7 +744,7 @@ export default function Home() {
               document.body.style.overflow = 'auto';
               // No Android, forçar um reflow para garantir que o scroll seja restaurado
               if (/android/i.test(navigator.userAgent)) {
-                document.body.offsetHeight; // Trigger reflow
+                void document.body.offsetHeight; // Trigger reflow
               }
               
               // Fechar chat e limpar estado
@@ -1407,7 +1412,7 @@ export default function Home() {
 
   // Lidar com o fechamento do browser para encerrar a sessão do chat
   useEffect(() => {
-    const handleBeforeUnload = async (_event: BeforeUnloadEvent) => {
+    const handleBeforeUnload = async () => {
       // Verificar se há uma sessão ativa do chat humano
       const conversationId = getCookie('chat_conversation_id');
       
@@ -1437,7 +1442,7 @@ export default function Home() {
       }
     };
 
-    const handlePageHide = async (_event: PageTransitionEvent) => {
+    const handlePageHide = async () => {
       // Verificar se há uma sessão ativa do chat humano
       const conversationId = getCookie('chat_conversation_id');
       
@@ -1601,7 +1606,6 @@ export default function Home() {
 
   // Sincronizar PiP com o vídeo principal
   useEffect(() => {
-    setPipMuted(videoMuted);
     if (pipVideoRef.current) {
       pipVideoRef.current.muted = videoMuted;
     }
@@ -2868,7 +2872,7 @@ Geralmente responde em poucos minutos.
       document.body.style.overflow = 'auto';
       // No Android, forçar um reflow para garantir que o scroll seja restaurado
       if (/android/i.test(navigator.userAgent)) {
-        document.body.offsetHeight; // Trigger reflow
+        void document.body.offsetHeight; // Trigger reflow
       }
       
       // Fechar o chat e limpar estados
