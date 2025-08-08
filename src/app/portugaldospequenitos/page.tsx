@@ -1,6 +1,6 @@
 'use client';
 import styles from "./page.module.css";
-import { useState, useRef, useEffect, FormEvent } from "react";
+import { useState, useRef, useEffect, FormEvent, useCallback } from "react";
 import Image from "next/image";
 import { saveContactRequest, createConversation, sendMessage, listenToConversation, closeConversation, type Conversation, type ChatMessage, getConversation } from "../../firebase/services";
 
@@ -422,25 +422,12 @@ export default function Home() {
   const [currentConversation, setCurrentConversation] = useState<Conversation | null>(null);
   const [humanChatMessages, setHumanChatMessages] = useState<ChatMessage[]>([]);
   const [humanChatInput, setHumanChatInput] = useState('');
-  // Funções para gerir a preferência de som
-  const saveMutePreference = (isMuted: boolean) => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('virtualGuide_mutePreference', JSON.stringify(isMuted));
-    }
-  };
 
-  const loadMutePreference = (): boolean => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('virtualGuide_mutePreference');
-      return saved ? JSON.parse(saved) : false; // Por padrão, com som
-    }
-    return false; // Por padrão, com som se localStorage não estiver disponível
-  };
 
   const [humanChatSubmitting, setHumanChatSubmitting] = useState(false);
   const [hasActiveSession, setHasActiveSession] = useState(false);
   const [showCloseConfirmation, setShowCloseConfirmation] = useState(false);
-  const [videoMuted, setVideoMuted] = useState(() => loadMutePreference());
+  const [videoMuted, setVideoMuted] = useState(false); // Sempre começar com som ativado
   const [videoPlaying, setVideoPlaying] = useState(false);
   const [pipVideoPlaying, setPipVideoPlaying] = useState(false);
   const [pipPosition, setPipPosition] = useState({ x: 20, y: 20 });
@@ -484,6 +471,8 @@ export default function Home() {
   useEffect(() => {
     loadConversationFromStorage();
   }, []);
+
+
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [pipExpanded, setPipExpanded] = useState(false);
@@ -658,7 +647,7 @@ export default function Home() {
         sessionStorage.setItem('mobile_session_checked', 'true');
       }
     }
-  }, [isMobile, showGuidePopup]);
+  }, [isMobile]);
 
   // Limpeza específica para iOS no carregamento inicial
   useEffect(() => {
@@ -1321,7 +1310,7 @@ export default function Home() {
     setIsDragging(true);
   };
 
-  const handleDragMove = (e: MouseEvent | TouchEvent) => {
+  const handleDragMove = useCallback((e: MouseEvent | TouchEvent) => {
     if (!isDragging) return;
     
     // Apenas prevenir default se estiver realmente a fazer drag
@@ -1351,7 +1340,7 @@ export default function Home() {
         y: clampedY
       });
     });
-  };
+  }, [isDragging, dragOffset, pipExpanded]);
 
   const handleDragEnd = () => {
     setIsDragging(false);
@@ -1383,14 +1372,18 @@ export default function Home() {
   // Função para alternar o mute do vídeo PiP
   const handleTogglePiPMute = () => {
     // O PiP sempre segue o vídeo principal, então alternar o vídeo principal
+    const newMutedState = !videoMuted;
+    setVideoMuted(newMutedState);
+    
+    // Aplicar imediatamente aos vídeos
     if (videoRef.current) {
-      const newMutedState = !videoRef.current.muted;
       videoRef.current.muted = newMutedState;
-      setVideoMuted(newMutedState);
-      
-      // Salvar a preferência
-      saveMutePreference(newMutedState);
     }
+    if (pipVideoRef.current) {
+      pipVideoRef.current.muted = newMutedState;
+    }
+    
+    // Não salvar preferência - resetar sempre no refresh
   };
 
   // Event listeners para drag and drop
@@ -1567,7 +1560,7 @@ export default function Home() {
         
         // Verificar se o blur aconteceu rapidamente após um focus (indicativo de teclado virtual)
         const now = Date.now();
-        if (now - (window as any).lastFocusTime < 1000) {
+        if (now - ((window as { lastFocusTime?: number }).lastFocusTime || 0) < 1000) {
           isVirtualKeyboardBlur = true;
           return;
         }
@@ -1595,7 +1588,7 @@ export default function Home() {
 
     const handleWindowFocus = () => {
       // Rastrear o tempo do focus para detectar teclado virtual
-      (window as any).lastFocusTime = Date.now();
+      (window as { lastFocusTime?: number }).lastFocusTime = Date.now();
       
       // Se o blur foi causado pelo teclado virtual, não restaurar o vídeo
       if (isVirtualKeyboardBlur) {
@@ -1665,12 +1658,79 @@ export default function Home() {
 
   // Aplicar preferência de som aos vídeos quando carregam
   useEffect(() => {
+    // Garantir que os vídeos tenham o estado correto de som
     if (videoRef.current) {
       videoRef.current.muted = videoMuted;
     }
     if (pipVideoRef.current) {
       pipVideoRef.current.muted = videoMuted; // Sempre seguir o vídeo principal
     }
+  }, [videoMuted]);
+
+  // Garantir que o som seja aplicado quando os vídeos são carregados
+  useEffect(() => {
+    const applyMuteState = () => {
+      if (videoRef.current) {
+        videoRef.current.muted = videoMuted;
+      }
+      if (pipVideoRef.current) {
+        pipVideoRef.current.muted = videoMuted;
+      }
+    };
+
+    // Aplicar quando os vídeos carregam
+    if (videoRef.current) {
+      videoRef.current.addEventListener('loadedmetadata', applyMuteState);
+      videoRef.current.addEventListener('canplay', applyMuteState);
+    }
+    if (pipVideoRef.current) {
+      pipVideoRef.current.addEventListener('loadedmetadata', applyMuteState);
+      pipVideoRef.current.addEventListener('canplay', applyMuteState);
+    }
+
+    return () => {
+      if (videoRef.current) {
+        videoRef.current.removeEventListener('loadedmetadata', applyMuteState);
+        videoRef.current.removeEventListener('canplay', applyMuteState);
+      }
+      if (pipVideoRef.current) {
+        pipVideoRef.current.removeEventListener('loadedmetadata', applyMuteState);
+        pipVideoRef.current.removeEventListener('canplay', applyMuteState);
+      }
+    };
+  }, [videoMuted]);
+
+  // Sincronizar estado do vídeo com o estado React quando o vídeo carrega
+  useEffect(() => {
+    const syncVideoMuted = () => {
+      if (videoRef.current) {
+        if (videoRef.current.muted !== videoMuted) {
+          videoRef.current.muted = videoMuted;
+        }
+      }
+      if (pipVideoRef.current) {
+        if (pipVideoRef.current.muted !== videoMuted) {
+          pipVideoRef.current.muted = videoMuted;
+        }
+      }
+    };
+
+    // Sincronizar quando o vídeo carrega
+    if (videoRef.current) {
+      videoRef.current.addEventListener('loadedmetadata', syncVideoMuted);
+    }
+    if (pipVideoRef.current) {
+      pipVideoRef.current.addEventListener('loadedmetadata', syncVideoMuted);
+    }
+
+    return () => {
+      if (videoRef.current) {
+        videoRef.current.removeEventListener('loadedmetadata', syncVideoMuted);
+      }
+      if (pipVideoRef.current) {
+        pipVideoRef.current.removeEventListener('loadedmetadata', syncVideoMuted);
+      }
+    };
   }, [videoMuted]);
 
   // Ativar legendas quando os vídeos carregam
@@ -2500,14 +2560,18 @@ Geralmente responde em poucos minutos.
   }
 
   function handleToggleMute() {
+    const newMutedState = !videoMuted;
+    setVideoMuted(newMutedState);
+    
+    // Aplicar imediatamente aos vídeos
     if (videoRef.current) {
-      const newMutedState = !videoRef.current.muted;
       videoRef.current.muted = newMutedState;
-      setVideoMuted(newMutedState);
-      
-      // Salvar a preferência
-      saveMutePreference(newMutedState);
     }
+    if (pipVideoRef.current) {
+      pipVideoRef.current.muted = newMutedState;
+    }
+    
+    // Não salvar preferência - resetar sempre no refresh
   }
 
   function handlePlayPause() {
