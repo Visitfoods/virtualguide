@@ -3472,15 +3472,15 @@ Geralmente responde em poucos minutos.
                         <div className={styles.chatbotInstructions}>
                           <div className={styles.instructionItem}>
                             <span className={styles.customBullet}></span>
-                            <span>O que visitar</span>
+                            <span>O que visitar ?</span>
                           </div>
                           <div className={styles.instructionItem}>
                             <span className={styles.customBullet}></span>
-                            <span>O que comer</span>
+                            <span>O que comer ?</span>
                           </div>
                           <div className={styles.instructionItem}>
                             <span className={styles.customBullet}></span>
-                            <span>Download vídeo</span>
+                            <span>Monumentos</span>
                           </div>
                           <div className={styles.instructionItem}>
                             <span className={styles.customBullet}></span>
@@ -3765,6 +3765,16 @@ Geralmente responde em poucos minutos.
                       onChange={(e) => setFormName(e.target.value)}
                       disabled={formSubmitting}
                       required
+                      onFocus={() => {
+                        if (isPromoMode) {
+                          setShowPromoPopup(true);
+                          setShowGuidePopup(false);
+                        }
+                      }}
+                      style={{
+                        cursor: 'text',
+                        opacity: 1
+                      }}
                     />
                   </div>
                   <div className={styles.formField}>
@@ -3778,12 +3788,29 @@ Geralmente responde em poucos minutos.
                       required
                       pattern="[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}"
                       title="Insira um email válido"
+                      onFocus={() => {
+                        if (isPromoMode) {
+                          setShowPromoPopup(true);
+                          setShowGuidePopup(false);
+                        }
+                      }}
+                      style={{
+                        cursor: 'text',
+                        opacity: 1
+                      }}
                     />
                   </div>
                   <button 
                     type="submit" 
                     className={styles.guideSubmitButton}
                     disabled={formSubmitting}
+                    onClick={(e) => {
+                      if (isPromoMode) {
+                        e.preventDefault();
+                        setShowPromoPopup(true);
+                        setShowGuidePopup(false);
+                      }
+                    }}
                   >
                     {formSubmitting ? 'A ENVIAR...' : 'INICIAR CONVERSAÇÃO'}
                   </button>
