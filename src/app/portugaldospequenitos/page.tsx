@@ -652,7 +652,7 @@ export default function Home() {
         sessionStorage.setItem('mobile_session_checked', 'true');
       }
     }
-  }, [isMobile]);
+  }, [isMobile]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Limpeza específica para iOS no carregamento inicial
   useEffect(() => {
@@ -840,7 +840,7 @@ export default function Home() {
         void document.body.offsetHeight; // Trigger reflow
       }
     };
-  }, [showChatbotPopup, showHumanChat]);
+  }, [showChatbotPopup, showHumanChat]); // eslint-disable-line react-hooks/exhaustive-deps
   
   // Detectar dispositivos iOS e aplicar correções específicas
   useEffect(() => {
@@ -1140,7 +1140,7 @@ export default function Home() {
     return () => {
       clearInterval(intervalId);
     };
-  }, [hasActiveSession, showHumanChat, showChatbotPopup, showGuidePopup]); // Executar quando o status da sessão ou o estado do chat mudar
+  }, [hasActiveSession, showHumanChat, showChatbotPopup, showGuidePopup]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Controlar vídeo PiP quando chats abrem em mobile
   useEffect(() => {
@@ -1236,7 +1236,7 @@ export default function Home() {
       setSavedVideoTime(currentTime);
       setShouldSaveTime(false);
     }
-  }, [showChatbotPopup, showHumanChat, showGuidePopup, isDesktop, shouldSaveTime, savedVideoTime]);
+  }, [showChatbotPopup, showHumanChat, showGuidePopup, isDesktop, shouldSaveTime, savedVideoTime]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Sincronizar estado do vídeo PiP com eventos de play/pause
   useEffect(() => {
@@ -1634,14 +1634,14 @@ export default function Home() {
         }
       };
       
-    }, [videoStateBeforeBlur]);
+    }, [videoStateBeforeBlur]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Sincronizar PiP com o vídeo principal
   useEffect(() => {
     if (pipVideoRef.current) {
       pipVideoRef.current.muted = videoMuted;
     }
-  }, [videoMuted]);
+  }, [videoMuted]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Aplicar preferência de som aos vídeos quando carregam
   useEffect(() => {
@@ -1652,9 +1652,9 @@ export default function Home() {
     if (pipVideoRef.current) {
       pipVideoRef.current.muted = videoMuted; // Sempre seguir o vídeo principal
     }
-  }, [videoMuted]);
+  }, [videoMuted]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Garantir que o som seja aplicado quando os vídeos são carregados
+      // Garantir que o som seja aplicado quando os vídeos são carregados
   useEffect(() => {
     const applyMuteState = () => {
       if (videoRef.current) {
@@ -1685,9 +1685,9 @@ export default function Home() {
         pipVideoRef.current.removeEventListener('canplay', applyMuteState);
       }
     };
-  }, [videoMuted]);
+  }, [videoMuted]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Sincronizar estado do vídeo com o estado React quando o vídeo carrega
+      // Sincronizar estado do vídeo com o estado React quando o vídeo carrega
   useEffect(() => {
     const syncVideoMuted = () => {
       if (videoRef.current) {
@@ -1718,7 +1718,7 @@ export default function Home() {
         pipVideoRef.current.removeEventListener('loadedmetadata', syncVideoMuted);
       }
     };
-  }, [videoMuted]);
+  }, [videoMuted]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Ativar legendas quando os vídeos carregam
   useEffect(() => {
@@ -1762,7 +1762,7 @@ export default function Home() {
         pipVideo.removeEventListener('loadedmetadata', activateSubtitles);
       }
     };
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Banco de conhecimento local para o chatbot
   const knowledgeBase = {
@@ -2570,7 +2570,7 @@ Geralmente responde em poucos minutos.
         try {
           await video.play();
           setVideoPlaying(true);
-        } catch (error) {
+        } catch {
           try {
             // Recuperação para iOS/Safari após background: reanexar a fonte e fazer load
             const savedTime = video.currentTime || 0;
@@ -3499,7 +3499,7 @@ Geralmente responde em poucos minutos.
                               if (input) {
                                 input.value = "Perguntar horários e preços";
                                 setShowInstructions(false); // Esconder boas-vindas
-                                handleChatbotSend(new Event('submit') as any);
+                                handleChatbotSend(new Event('submit') as unknown as React.FormEvent);
                               }
                             }}
                           >
@@ -3511,9 +3511,9 @@ Geralmente responde em poucos minutos.
                               onClick={() => {
                                 const input = chatbotInputRef.current;
                                 if (input) {
-                                  input.value = "Como chegar";
-                                  setShowInstructions(false); // Esconder boas-vindas
-                                  handleChatbotSend(new Event('submit') as any);
+                                                                  input.value = "Como chegar";
+                                setShowInstructions(false); // Esconder boas-vindas
+                                handleChatbotSend(new Event('submit') as unknown as React.FormEvent);
                                 }
                               }}
                             >
@@ -3524,9 +3524,9 @@ Geralmente responde em poucos minutos.
                               onClick={() => {
                                 const input = chatbotInputRef.current;
                                 if (input) {
-                                  input.value = "Monumentos";
-                                  setShowInstructions(false); // Esconder boas-vindas
-                                  handleChatbotSend(new Event('submit') as any);
+                                                                  input.value = "Monumentos";
+                                setShowInstructions(false); // Esconder boas-vindas
+                                handleChatbotSend(new Event('submit') as unknown as React.FormEvent);
                                 }
                               }}
                             >
@@ -3602,7 +3602,7 @@ Geralmente responde em poucos minutos.
                         const input = chatbotInputRef.current;
                         if (input) {
                           input.value = 'Perguntar horários e preços';
-                          handleChatbotSend(new Event('submit') as any);
+                          handleChatbotSend(new Event('submit') as unknown as React.FormEvent);
                         }
                       }}
                       aria-label="Perguntar horários e preços"
@@ -3615,7 +3615,7 @@ Geralmente responde em poucos minutos.
                         const input = chatbotInputRef.current;
                         if (input) {
                           input.value = 'Como chegar';
-                          handleChatbotSend(new Event('submit') as any);
+                          handleChatbotSend(new Event('submit') as unknown as React.FormEvent);
                         }
                       }}
                       aria-label="Como chegar"
@@ -3628,7 +3628,7 @@ Geralmente responde em poucos minutos.
                         const input = chatbotInputRef.current;
                         if (input) {
                           input.value = 'Monumentos';
-                          handleChatbotSend(new Event('submit') as any);
+                          handleChatbotSend(new Event('submit') as unknown as React.FormEvent);
                         }
                       }}
                       aria-label="Monumentos"
@@ -4178,7 +4178,7 @@ Geralmente responde em poucos minutos.
                   try {
                     await pip.play();
                     setPipVideoPlaying(true);
-                  } catch (err) {
+                  } catch {
                     try {
                       const saved = pip.currentTime || 0;
                       const srcAttr = pip.getAttribute('src');

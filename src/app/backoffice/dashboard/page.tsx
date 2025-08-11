@@ -120,8 +120,8 @@ export default function BackofficeDashboard() {
             userName: c.userName,
             userContact: c.userEmail,
             status: c.status,
-            createdAt: c.createdAt as unknown as any,
-            updatedAt: c.updatedAt as unknown as any,
+            createdAt: c.createdAt as unknown as string | Date,
+            updatedAt: c.updatedAt as unknown as string | Date,
             messages: (c.messages || []).map((m) => ({
               from: m.from === 'bot' ? 'agent' : 'user',
               text: m.text,
@@ -167,8 +167,8 @@ export default function BackofficeDashboard() {
               userName: c.userName,
               userContact: c.userEmail,
               status: c.status,
-              createdAt: c.createdAt as unknown as any,
-              updatedAt: c.updatedAt as unknown as any,
+                          createdAt: c.createdAt as unknown as string | Date,
+            updatedAt: c.updatedAt as unknown as string | Date,
               messages: (c.messages || []).map((m) => ({
                 from: m.from === 'bot' ? 'agent' : 'user',
                 text: m.text,

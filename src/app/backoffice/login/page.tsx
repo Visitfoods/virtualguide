@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { validateCredentials, seedInitialUsers } from '../../../firebase/userServices';
+import { validateCredentials } from '../../../firebase/userServices';
 import styles from './login.module.css';
 
 export default function Login() {

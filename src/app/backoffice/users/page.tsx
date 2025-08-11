@@ -18,7 +18,7 @@ export default function UserManagement() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [role, setRole] = useState<'user' | 'admin'>('user');
+
   
   // Estados para modais
   const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -62,7 +62,7 @@ export default function UserManagement() {
       }
       
       setIsAuthenticated(true);
-      setRole(userRole);
+
     };
 
     checkAuth();
@@ -684,7 +684,7 @@ export default function UserManagement() {
             <h3 style={{ color: '#d9534f', marginTop: 0 }}>⚠️ Eliminar Utilizador</h3>
             
             <p style={{ marginBottom: 20, lineHeight: 1.6 }}>
-              Tem a certeza que pretende eliminar o utilizador <strong>"{userToDelete.username}"</strong>?
+              Tem a certeza que pretende eliminar o utilizador <strong>&quot;{userToDelete.username}&quot;</strong>?
               <br/><br/>
               <strong style={{ color: '#d9534f' }}>Esta ação é irreversível!</strong> 
               <br/>
