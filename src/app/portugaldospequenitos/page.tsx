@@ -882,6 +882,25 @@ export default function Home() {
     };
   }, [showChatbotPopup, showHumanChat]); // eslint-disable-line react-hooks/exhaustive-deps
   
+  // Pausar vídeo quando popups estiverem abertos
+  useEffect(() => {
+    if (videoRef.current) {
+      if (showGuidePopup || showPromoPopup) {
+        // Pausar vídeo quando popups abrem
+        if (!videoRef.current.paused) {
+          videoRef.current.pause();
+          setVideoPlaying(false);
+        }
+      } else {
+        // Retomar vídeo quando popups fecham (apenas se não estiver em modo desktop)
+        if (videoRef.current.paused && !isDesktop) {
+          videoRef.current.play();
+          setVideoPlaying(true);
+        }
+      }
+    }
+  }, [showGuidePopup, showPromoPopup, isDesktop]);
+  
   // Detectar dispositivos iOS e aplicar correções específicas
   useEffect(() => {
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as unknown as {MSStream?: boolean}).MSStream;
