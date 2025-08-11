@@ -14,8 +14,13 @@ export default function BackofficeRedirect() {
       // Se não estiver autenticado, redirecionar para login
       router.push('/backoffice/login');
     } else {
-      // Se estiver autenticado, redirecionar para o dashboard
-      router.push('/backoffice/dashboard');
+      // Se estiver autenticado, verificar o perfil
+      const role = localStorage.getItem('backofficeRole');
+      if (role === 'admin') {
+        router.push('/backoffice/select');
+      } else {
+        router.push('/backoffice/dashboard');
+      }
     }
   }, [router]);
 

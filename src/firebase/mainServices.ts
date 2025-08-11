@@ -1,5 +1,5 @@
 import { mainDb } from './mainConfig';
-import { collection, addDoc, serverTimestamp, doc, updateDoc, arrayUnion, getDoc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, updateDoc, arrayUnion, getDoc, onSnapshot, query, getDocs } from 'firebase/firestore';
 
 // Interface para os dados do formulário da página principal
 export interface MainContactFormData {
@@ -58,7 +58,7 @@ export const saveMainContactRequest = async (data: MainContactFormData): Promise
   }
 };
 
-// Função para criar uma nova conversa
+// Função para criar uma nova conversa (inclui dados do contacto)
 export const createMainConversation = async (
   userData: MainContactFormData, 
   initialMessages?: ChatMessage[]
@@ -74,7 +74,15 @@ export const createMainConversation = async (
       }
     ];
     
+    // Incluir todos os dados: contacto + conversa numa só estrutura
     const conversationData = {
+      // Dados do contacto original
+      name: userData.name,
+      email: userData.email,
+      source: userData.source || 'main-page',
+      timestamp: serverTimestamp(),
+      
+      // Dados da conversa
       userId: `user_${Date.now()}`,
       userName: userData.name,
       userEmail: userData.email,
@@ -132,4 +140,98 @@ export const getMainConversation = async (conversationId: string): Promise<Conve
     console.error('Erro ao obter conversa:', error);
     throw error;
   }
+};
+
+// Escutar uma conversa específica (tempo real)
+export const listenToMainConversation = (conversationId: string, callback: (conversation: Conversation) => void) => {
+  const conversationRef = doc(mainDb, 'conversas', conversationId);
+  return onSnapshot(conversationRef, (docSnap) => {
+    if (docSnap.exists()) {
+      const data = docSnap.data() as Conversation;
+      callback({ ...data, id: docSnap.id });
+    }
+  });
+};
+
+// Escutar todas as conversas (tempo real)
+export const listenToAllMainConversations = (callback: (conversations: Conversation[]) => void) => {
+  const q = query(collection(mainDb, 'conversas'));
+  return onSnapshot(q, (snapshot) => {
+    const conversations: Conversation[] = [];
+    snapshot.forEach((docSnap) => {
+      const data = docSnap.data() as Conversation;
+      const messages = data.messages || [];
+      const unreadCount = messages.filter((m) => m.from === 'user' && m.read === false).length;
+      conversations.push({ ...data, id: docSnap.id, unreadCount });
+    });
+    // Ordenar por updatedAt (strings ISO ou Timestamp)
+    conversations.sort((a, b) => {
+      const dateA = (a.updatedAt as unknown as string) ? new Date(a.updatedAt as unknown as string).getTime() : 0;
+      const dateB = (b.updatedAt as unknown as string) ? new Date(b.updatedAt as unknown as string).getTime() : 0;
+      return dateB - dateA;
+    });
+    callback(conversations);
+  });
+};
+
+// Escutar apenas conversas ativas (tempo real)
+export const listenToActiveMainConversations = (callback: (conversations: Conversation[]) => void) => {
+  const q = query(collection(mainDb, 'conversas'));
+  return onSnapshot(q, (snapshot) => {
+    const conversations: Conversation[] = [];
+    snapshot.forEach((docSnap) => {
+      const data = docSnap.data() as Conversation;
+      if (data.status === 'active') {
+        const messages = data.messages || [];
+        const unreadCount = messages.filter((m) => m.from === 'user' && m.read === false).length;
+        conversations.push({ ...data, id: docSnap.id, unreadCount });
+      }
+    });
+    conversations.sort((a, b) => {
+      const dateA = (a.updatedAt as unknown as string) ? new Date(a.updatedAt as unknown as string).getTime() : 0;
+      const dateB = (b.updatedAt as unknown as string) ? new Date(b.updatedAt as unknown as string).getTime() : 0;
+      return dateB - dateA;
+    });
+    callback(conversations);
+  });
+};
+
+// Listar todas as conversas (fetch único)
+export const listMainConversations = async (): Promise<Conversation[]> => {
+  const q = query(collection(mainDb, 'conversas'));
+  const querySnapshot = await getDocs(q);
+  const conversations: Conversation[] = [];
+  querySnapshot.forEach((docSnap) => {
+    const data = docSnap.data() as Conversation;
+    const messages = data.messages || [];
+    const unreadCount = messages.filter((m) => m.from === 'user' && m.read === false).length;
+    conversations.push({ ...data, id: docSnap.id, unreadCount });
+  });
+  conversations.sort((a, b) => {
+    const dateA = (a.updatedAt as unknown as string) ? new Date(a.updatedAt as unknown as string).getTime() : 0;
+    const dateB = (b.updatedAt as unknown as string) ? new Date(b.updatedAt as unknown as string).getTime() : 0;
+    return dateB - dateA;
+  });
+  return conversations;
+};
+
+// Listar apenas conversas ativas (fetch único)
+export const listActiveMainConversations = async (): Promise<Conversation[]> => {
+  const q = query(collection(mainDb, 'conversas'));
+  const querySnapshot = await getDocs(q);
+  const conversations: Conversation[] = [];
+  querySnapshot.forEach((docSnap) => {
+    const data = docSnap.data() as Conversation;
+    if (data.status === 'active') {
+      const messages = data.messages || [];
+      const unreadCount = messages.filter((m) => m.from === 'user' && m.read === false).length;
+      conversations.push({ ...data, id: docSnap.id, unreadCount });
+    }
+  });
+  conversations.sort((a, b) => {
+    const dateA = (a.updatedAt as unknown as string) ? new Date(a.updatedAt as unknown as string).getTime() : 0;
+    const dateB = (b.updatedAt as unknown as string) ? new Date(b.updatedAt as unknown as string).getTime() : 0;
+    return dateB - dateA;
+  });
+  return conversations;
 };

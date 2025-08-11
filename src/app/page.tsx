@@ -2,7 +2,6 @@
 import { useState, useRef, useEffect, FormEvent } from "react";
 import styles from "./page.module.css";
 import { 
-  saveMainContactRequest, 
   MainContactFormData, 
   createMainConversation, 
   addMessageToMainConversation,
@@ -427,10 +426,7 @@ Always Respond in European Portuguese
         source: 'main-page'
       };
 
-      // Enviar dados para o Firebase
-      await saveMainContactRequest(contactData);
-      
-      // Criar conversa no Firebase
+      // Criar conversa no Firebase (inclui automaticamente os dados do contacto)
       const newConversationId = await createMainConversation(contactData);
       setConversationId(newConversationId);
       
@@ -477,7 +473,7 @@ Always Respond in European Portuguese
       document.body.style.overflow = 'hidden';
     } else {
       // Se não há conversa ativa, abrir o formulário
-      setShowGuidePopup(true);
+    setShowGuidePopup(true);
     }
   }
 
@@ -576,7 +572,7 @@ Always Respond in European Portuguese
   function handleChatInputClick() {
     // Se já existe uma conversa ativa, não fazer nada (chat já está aberto)
     if (!conversationId) {
-      setShowGuidePopup(true);
+    setShowGuidePopup(true);
     }
   }
 

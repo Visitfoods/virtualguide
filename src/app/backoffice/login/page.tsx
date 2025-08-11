@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { validateCredentials, seedInitialUsers } from '../../../firebase/userServices';
 import styles from './login.module.css';
 
 export default function Login() {
@@ -17,15 +18,26 @@ export default function Login() {
     setLoading(true);
 
     try {
-      // Credenciais simples para demonstração
-      // Em produção, use autenticação Firebase ou similar
-      if (username === 'admin' && password === 'guiareal123') {
-        // Salvar estado de autenticação em localStorage
+      // Validar credenciais na base de dados
+      const user = await validateCredentials(username, password);
+      
+      if (user) {
+        // Login bem-sucedido
         localStorage.setItem('backofficeAuth', 'true');
-        // Redirecionar para o backoffice
-        router.push('/backoffice');
+        localStorage.setItem('backofficeRole', user.role);
+        localStorage.setItem('backofficeUserId', user.id || '');
+        localStorage.setItem('backofficeUsername', user.username);
+        
+        if (user.role === 'admin') {
+          // Super admin: limpar escolha e ir para seleção
+          localStorage.removeItem('backofficeDataSource');
+          router.push('/backoffice/select');
+        } else {
+          // Utilizador normal: ir direto para dashboard
+          router.push('/backoffice');
+        }
       } else {
-        setError('Credenciais inválidas. Tente novamente.');
+        setError('Credenciais inválidas ou conta inativa. Tente novamente.');
       }
     } catch (err) {
       console.error('Erro ao fazer login:', err);

@@ -485,6 +485,11 @@ export default function Home() {
     currentTime: 0,
     wasMuted: false
   });
+  const [pipStateBeforeBlur, setPipStateBeforeBlur] = useState({
+    wasPlaying: false,
+    currentTime: 0,
+    wasMuted: false
+  });
   const [pipManuallyClosed, setPipManuallyClosed] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
   const [isTablet, setIsTablet] = useState(false);
@@ -1373,8 +1378,8 @@ export default function Home() {
   const handleTogglePiPMute = () => {
     // O PiP sempre segue o vídeo principal, então alternar o vídeo principal
     const newMutedState = !videoMuted;
-    setVideoMuted(newMutedState);
-    
+      setVideoMuted(newMutedState);
+      
     // Aplicar imediatamente aos vídeos
     if (videoRef.current) {
       videoRef.current.muted = newMutedState;
@@ -1480,174 +1485,156 @@ export default function Home() {
     };
   }, [hasActiveSession]); // Executar quando o status da sessão mudar
 
-    // Gestão de vídeos quando a página perde/ganha foco (especialmente importante para iOS)
-  useEffect(() => {
-    // Detectar se é iOS
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    // GESTÃO DE VÍDEOS - SOLUÇÃO HÍBRIDA
+    // Desktop: Controlo 100% manual (sem pausa automática)
+    // iOS: visibilitychange ativo APENAS para evitar travamento (vídeo fica pausado após desbloquear)
     
-    // Variável para rastrear se o blur foi causado pelo teclado virtual
-    let isVirtualKeyboardBlur = false;
-    
-    const handleVisibilityChange = () => {
-      if (document.hidden) {
-        // Página ficou oculta - pausar vídeos
-        if (videoRef.current && !videoRef.current.paused) {
-          videoRef.current.pause();
-          setVideoPlaying(false);
-        }
-        if (pipVideoRef.current && !pipVideoRef.current.paused) {
-          pipVideoRef.current.pause();
-          setPipVideoPlaying(false);
-        }
-      } else {
-        // Página voltou a ficar visível - restaurar estado dos vídeos
-        if (!isDesktop && videoRef.current && !showGuidePopup && !showChatbotPopup && !showHumanChat) {
-          // Em mobile, restaurar o vídeo principal se não há popups abertos
-                      if (isIOS) {
-              // Em iOS, usar o estado salvo antes do blur
-              if (videoStateBeforeBlur.wasPlaying) {
-                videoRef.current.currentTime = videoStateBeforeBlur.currentTime;
-                videoRef.current.muted = videoStateBeforeBlur.wasMuted;
-                
-                // Garantir que o vídeo principal está a ser reproduzido (não o Judite_2.mp4)
-                if (videoRef.current.src && videoRef.current.src.includes('VirtualGuide_PortugaldosPequeninos.webm')) {
-                  videoRef.current.play().then(() => {
-                    setVideoPlaying(true);
-                  }).catch((error) => {
-                    console.log('Erro ao retomar vídeo em iOS:', error);
-                  });
-                }
-              }
-            } else {
-            // Em outros dispositivos, usar o tempo do PiP ou salvo
-            const currentTime = pipVideoRef.current?.currentTime || savedVideoTime || 0;
-            videoRef.current.currentTime = currentTime;
-            videoRef.current.muted = false;
-            
-            videoRef.current.play().then(() => {
-              setVideoPlaying(true);
-            }).catch((error) => {
-              console.log('Erro ao retomar vídeo:', error);
+    useEffect(() => {
+      // Detectar se é iOS
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      
+      // SÓ ativar para iOS para resolver problema de zoom/travamento
+      if (!isIOS) {
+        return; // Desktop e Android: sem pausa automática
+      }
+      
+      const handleVisibilityChange = () => {
+        if (document.hidden) {
+          // iPhone foi bloqueado ou app foi para background
+          if (videoRef.current && !videoRef.current.paused) {
+            setVideoStateBeforeBlur({
+              wasPlaying: true,
+              currentTime: videoRef.current.currentTime,
+              wasMuted: videoRef.current.muted
             });
+            videoRef.current.pause();
+            setVideoPlaying(false);
           }
-          
-          // Pausar PiP se estiver ativo
+
           if (pipVideoRef.current) {
-            pipVideoRef.current.pause();
-            setPipVideoPlaying(false);
-          }
-        }
-      }
-    };
-
-    const handleWindowBlur = () => {
-      // Verificar se o blur foi causado pelo teclado virtual no iPhone
-      if (isIOS) {
-        // No iPhone, verificar se há um input focado
-        const activeElement = document.activeElement;
-        const isInputFocused = activeElement && (
-          activeElement.tagName === 'INPUT' || 
-          activeElement.tagName === 'TEXTAREA' ||
-          (activeElement as HTMLElement).contentEditable === 'true'
-        );
-        
-        // Se há um input focado, provavelmente é o teclado virtual
-        if (isInputFocused) {
-          isVirtualKeyboardBlur = true;
-          // Não pausar o vídeo quando o teclado virtual é fechado
-          return;
-        }
-        
-        // Verificar se o blur aconteceu rapidamente após um focus (indicativo de teclado virtual)
-        const now = Date.now();
-        if (now - ((window as { lastFocusTime?: number }).lastFocusTime || 0) < 1000) {
-          isVirtualKeyboardBlur = true;
-          return;
-        }
-      }
-      
-      // Quando a janela perde foco, salvar estado e pausar vídeos
-      if (videoRef.current) {
-        setVideoStateBeforeBlur({
-          wasPlaying: !videoRef.current.paused,
-          currentTime: videoRef.current.currentTime,
-          wasMuted: videoRef.current.muted
-        });
-        
-        if (!videoRef.current.paused) {
-          videoRef.current.pause();
-          setVideoPlaying(false);
-        }
-      }
-      
-      if (pipVideoRef.current && !pipVideoRef.current.paused) {
-        pipVideoRef.current.pause();
-        setPipVideoPlaying(false);
-      }
-    };
-
-    const handleWindowFocus = () => {
-      // Rastrear o tempo do focus para detectar teclado virtual
-      (window as { lastFocusTime?: number }).lastFocusTime = Date.now();
-      
-      // Se o blur foi causado pelo teclado virtual, não restaurar o vídeo
-      if (isVirtualKeyboardBlur) {
-        isVirtualKeyboardBlur = false;
-        return;
-      }
-      
-      // Quando a janela volta a ter foco, restaurar vídeos se apropriado
-      if (!isDesktop && videoRef.current && !showGuidePopup && !showChatbotPopup && !showHumanChat) {
-        // Restaurar o estado anterior do vídeo
-        if (videoStateBeforeBlur.wasPlaying) {
-          videoRef.current.currentTime = videoStateBeforeBlur.currentTime;
-          videoRef.current.muted = videoStateBeforeBlur.wasMuted;
-          
-          // Garantir que o vídeo principal está a ser reproduzido (não o Judite_2.mp4)
-          if (videoRef.current.src && videoRef.current.src.includes('VirtualGuide_PortugaldosPequeninos.webm')) {
-            videoRef.current.play().then(() => {
-              setVideoPlaying(true);
-            }).catch((error) => {
-              console.log('Erro ao retomar vídeo:', error);
+            setPipStateBeforeBlur({
+              wasPlaying: !pipVideoRef.current.paused,
+              currentTime: pipVideoRef.current.currentTime || 0,
+              wasMuted: pipVideoRef.current.muted
             });
+            if (!pipVideoRef.current.paused) {
+              pipVideoRef.current.pause();
+              setPipVideoPlaying(false);
+            }
           }
-        }
-        
-        // Pausar PiP se estiver ativo
-        if (pipVideoRef.current) {
-          pipVideoRef.current.pause();
-          setPipVideoPlaying(false);
-        }
-      }
-    };
+        } else {
+          // iPhone voltou do bloqueio/background
+          const video = videoRef.current;
+          if (video) {
+            const savedTime = videoStateBeforeBlur.wasPlaying
+              ? videoStateBeforeBlur.currentTime
+              : (Number.isFinite(video.currentTime) ? video.currentTime : 0);
+            const wasMuted = videoStateBeforeBlur.wasMuted;
+            try { video.pause(); } catch {}
+            setVideoPlaying(false);
 
-    // Adicionar event listeners
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('blur', handleWindowBlur);
-    window.addEventListener('focus', handleWindowFocus);
-    
-    // Adicionar listener específico para detectar quando o teclado virtual é fechado no iPhone
-    if (isIOS) {
-      const handleInputBlur = (e: Event) => {
-        const target = e.target as HTMLElement;
-        if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
-          // Marcar que o próximo blur da janela pode ser do teclado virtual
-          isVirtualKeyboardBlur = true;
+            const srcAttr = video.getAttribute('src');
+            if (srcAttr) {
+              video.removeAttribute('src');
+              video.load();
+              video.setAttribute('src', srcAttr);
+            } else {
+              const currentSrc = video.src;
+              video.src = '';
+              video.load();
+              video.src = currentSrc;
+            }
+
+            const restore = () => {
+              try {
+                if (!Number.isNaN(savedTime) && Number.isFinite(savedTime)) {
+                  video.currentTime = savedTime;
+                }
+                if (typeof wasMuted === 'boolean') {
+                  video.muted = wasMuted;
+                }
+              } catch {}
+            };
+
+            let restored = false;
+            const onLoaded = () => {
+              if (restored) return;
+              restored = true;
+              restore();
+            };
+            video.addEventListener('loadedmetadata', onLoaded, { once: true });
+            video.addEventListener('canplay', onLoaded, { once: true });
+
+            setVideoStateBeforeBlur({ wasPlaying: false, currentTime: 0, wasMuted: false });
+          }
+
+          const pip = pipVideoRef.current;
+          if (pip) {
+            const pipSavedTime = pipStateBeforeBlur.currentTime || 0;
+            const pipWasMuted = pipStateBeforeBlur.wasMuted;
+            try { pip.pause(); } catch {}
+            setPipVideoPlaying(false);
+
+            const pipSrcAttr = pip.getAttribute('src');
+            if (pipSrcAttr) {
+              pip.removeAttribute('src');
+              pip.load();
+              pip.setAttribute('src', pipSrcAttr);
+            } else {
+              const currentSrc = pip.src;
+              pip.src = '';
+              pip.load();
+              pip.src = currentSrc;
+            }
+
+            const restorePip = () => {
+              try {
+                pip.currentTime = pipSavedTime;
+                pip.muted = pipWasMuted;
+              } catch {}
+            };
+            let pipRestored = false;
+            const onPipLoaded = () => {
+              if (pipRestored) return;
+              pipRestored = true;
+              restorePip();
+            };
+            pip.addEventListener('loadedmetadata', onPipLoaded, { once: true });
+            pip.addEventListener('canplay', onPipLoaded, { once: true });
+
+            setPipStateBeforeBlur({ wasPlaying: false, currentTime: 0, wasMuted: false });
+          }
         }
       };
       
-      document.addEventListener('blur', handleInputBlur, true);
+      // Adicionar listeners para iOS
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+      
+      // Event listeners diretos no vídeo para sincronização de estado no iOS
+      const handleVideoPlay = () => {
+        setVideoPlaying(true);
+        console.log('iOS: Vídeo play detectado');
+      };
+      
+      const handleVideoPause = () => {
+        setVideoPlaying(false);
+        console.log('iOS: Vídeo pause detectado');
+      };
+      
+      if (videoRef.current) {
+        videoRef.current.addEventListener('play', handleVideoPlay);
+        videoRef.current.addEventListener('pause', handleVideoPause);
+      }
       
       return () => {
         document.removeEventListener('visibilitychange', handleVisibilityChange);
-        window.removeEventListener('blur', handleWindowBlur);
-        window.removeEventListener('focus', handleWindowFocus);
-        document.removeEventListener('blur', handleInputBlur, true);
+        if (videoRef.current) {
+          videoRef.current.removeEventListener('play', handleVideoPlay);
+          videoRef.current.removeEventListener('pause', handleVideoPause);
+        }
       };
-    }
-
-
-  }, [isDesktop, showGuidePopup, showChatbotPopup, showHumanChat, savedVideoTime, videoStateBeforeBlur]);
+      
+    }, [videoStateBeforeBlur]);
 
   // Sincronizar PiP com o vídeo principal
   useEffect(() => {
@@ -2561,8 +2548,8 @@ Geralmente responde em poucos minutos.
 
   function handleToggleMute() {
     const newMutedState = !videoMuted;
-    setVideoMuted(newMutedState);
-    
+      setVideoMuted(newMutedState);
+      
     // Aplicar imediatamente aos vídeos
     if (videoRef.current) {
       videoRef.current.muted = newMutedState;
@@ -2575,14 +2562,53 @@ Geralmente responde em poucos minutos.
   }
 
   function handlePlayPause() {
-    if (videoRef.current) {
-      if (videoRef.current.paused) {
-        videoRef.current.play();
-        setVideoPlaying(true);
-      } else {
-        videoRef.current.pause();
-        setVideoPlaying(false);
-      }
+    const video = videoRef.current;
+    if (!video) return;
+
+    if (video.paused) {
+      const attemptPlay = async () => {
+        try {
+          await video.play();
+          setVideoPlaying(true);
+        } catch (error) {
+          try {
+            // Recuperação para iOS/Safari após background: reanexar a fonte e fazer load
+            const savedTime = video.currentTime || 0;
+            const srcAttr = video.getAttribute('src');
+
+            if (srcAttr) {
+              video.removeAttribute('src');
+              video.load();
+              video.setAttribute('src', srcAttr);
+            } else {
+              const currentSrc = video.src;
+              video.src = '';
+              video.load();
+              video.src = currentSrc;
+            }
+
+            await new Promise<void>((resolve) => {
+              const onCanPlay = () => {
+                video.removeEventListener('canplay', onCanPlay);
+                resolve();
+              };
+              video.addEventListener('canplay', onCanPlay, { once: true });
+            });
+
+            video.currentTime = savedTime;
+            await video.play();
+            setVideoPlaying(true);
+          } catch (recoverError) {
+            console.log('iOS: falha ao recuperar reprodução:', recoverError);
+            setVideoPlaying(false);
+          }
+        }
+      };
+
+      void attemptPlay();
+    } else {
+      video.pause();
+      setVideoPlaying(false);
     }
   }
 
@@ -3446,23 +3472,68 @@ Geralmente responde em poucos minutos.
                     <p className={styles.chatbotSubtitle}>PORTUGAL DOS PEQUENITOS</p>
                     {showInstructions && (
                       <div className={styles.glassmorphismBox}>
-                        <p className={styles.chatbotInstructions}>
-                          Sou o guia virtual do Portugal dos Pequenitos.
-                          <br />
-                          Estou aqui para te apoiar em tudo o que precisares:
-                          <br />
-                          🟢 Horários de funcionamento
-                          <br />
-                          🟢 Como chegar
-                          <br />
-                          🟢 Monumentos representados
-                          <br />
-                          🟢 História do parque
-                          <br />
-                          O nosso objetivo é facilitar a tua experiência, garantindo um atendimento mais próximo, disponível 24 horas por dia, todos os dias.
-                          <br />
-                          Sempre que precisares, é só escrever — estamos aqui para ajudar!
-                        </p>
+                        <h4>Como posso ajudar hoje?</h4>
+                        <div className={styles.chatbotInstructions}>
+                          <div className={styles.instructionItem}>
+                            <span className={styles.customBullet}></span>
+                            <span>Horários e preços</span>
+                          </div>
+                          <div className={styles.instructionItem}>
+                            <span className={styles.customBullet}></span>
+                            <span>Como chegar</span>
+                          </div>
+                          <div className={styles.instructionItem}>
+                            <span className={styles.customBullet}></span>
+                            <span>Monumentos e áreas</span>
+                          </div>
+                          <div className={styles.instructionItem}>
+                            <span className={styles.customBullet}></span>
+                            <span>Acessibilidade</span>
+                          </div>
+                        </div>
+                        <div className={styles.actionButtons}>
+                          <button 
+                            className={styles.primaryActionButton}
+                            onClick={() => {
+                              const input = chatbotInputRef.current;
+                              if (input) {
+                                input.value = "Perguntar horários e preços";
+                                setShowInstructions(false); // Esconder boas-vindas
+                                handleChatbotSend(new Event('submit') as any);
+                              }
+                            }}
+                          >
+                            Perguntar horários e preços
+                          </button>
+                          <div className={styles.secondaryActions}>
+                            <button 
+                              className={styles.secondaryActionButton}
+                              onClick={() => {
+                                const input = chatbotInputRef.current;
+                                if (input) {
+                                  input.value = "Como chegar";
+                                  setShowInstructions(false); // Esconder boas-vindas
+                                  handleChatbotSend(new Event('submit') as any);
+                                }
+                              }}
+                            >
+                              Como chegar
+                            </button>
+                            <button 
+                              className={styles.secondaryActionButton}
+                              onClick={() => {
+                                const input = chatbotInputRef.current;
+                                if (input) {
+                                  input.value = "Monumentos";
+                                  setShowInstructions(false); // Esconder boas-vindas
+                                  handleChatbotSend(new Event('submit') as any);
+                                }
+                              }}
+                            >
+                              Monumentos
+                            </button>
+                          </div>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -3522,6 +3593,50 @@ Geralmente responde em poucos minutos.
               </div>
               {/* Container fixo com form e botão FALAR COM O GUIA REAL */}
               <div className={styles.fixedBottomContainer}>
+                {/* Barra compacta com sugestões rápidas (aparece após iniciar conversa) */}
+                {(!showInstructions || (Array.isArray(chatbotMessages) && chatbotMessages.length > 0)) && (
+                  <div className={styles.quickSuggestionsBar}>
+                    <button
+                      className={styles.quickSuggestionBtn}
+                      onClick={() => {
+                        const input = chatbotInputRef.current;
+                        if (input) {
+                          input.value = 'Perguntar horários e preços';
+                          handleChatbotSend(new Event('submit') as any);
+                        }
+                      }}
+                      aria-label="Perguntar horários e preços"
+                    >
+                      Horários e preços
+                    </button>
+                    <button
+                      className={styles.quickSuggestionBtn}
+                      onClick={() => {
+                        const input = chatbotInputRef.current;
+                        if (input) {
+                          input.value = 'Como chegar';
+                          handleChatbotSend(new Event('submit') as any);
+                        }
+                      }}
+                      aria-label="Como chegar"
+                    >
+                      Como chegar
+                    </button>
+                    <button
+                      className={styles.quickSuggestionBtn}
+                      onClick={() => {
+                        const input = chatbotInputRef.current;
+                        if (input) {
+                          input.value = 'Monumentos';
+                          handleChatbotSend(new Event('submit') as any);
+                        }
+                      }}
+                      aria-label="Monumentos"
+                    >
+                      Monumentos
+                    </button>
+                  </div>
+                )}
                 <form className={styles.chatbotInputBar} onSubmit={handleChatbotSend} id="chatbotInputForm">
                   <input
                     ref={chatbotInputRef}
@@ -3537,8 +3652,6 @@ Geralmente responde em poucos minutos.
                         }, 100);
                       }
                     }}
-                    autoComplete="off"
-                    autoCapitalize="off"
                   />
                   <button type="submit" className={styles.chatbotSendButton}>
                     <SendIcon />
@@ -4058,14 +4171,49 @@ Geralmente responde em poucos minutos.
               className={styles.pipPlayPauseButton}
               onClick={(e) => {
                 e.stopPropagation();
-                if (pipVideoRef.current) {
-                  if (pipVideoPlaying) {
-                    pipVideoRef.current.pause();
-                    setPipVideoPlaying(false);
-                  } else {
-                    pipVideoRef.current.play();
+                const pip = pipVideoRef.current;
+                if (!pip) return;
+
+                const tryPlay = async () => {
+                  try {
+                    await pip.play();
                     setPipVideoPlaying(true);
+                  } catch (err) {
+                    try {
+                      const saved = pip.currentTime || 0;
+                      const srcAttr = pip.getAttribute('src');
+                      if (srcAttr) {
+                        pip.removeAttribute('src');
+                        pip.load();
+                        pip.setAttribute('src', srcAttr);
+                      } else {
+                        const current = pip.src;
+                        pip.src = '';
+                        pip.load();
+                        pip.src = current;
+                      }
+                      await new Promise<void>((resolve) => {
+                        const onCanPlay = () => {
+                          pip.removeEventListener('canplay', onCanPlay);
+                          resolve();
+                        };
+                        pip.addEventListener('canplay', onCanPlay, { once: true });
+                      });
+                      pip.currentTime = saved;
+                      await pip.play();
+                      setPipVideoPlaying(true);
+                    } catch (recoverErr) {
+                      console.log('iOS: falha ao recuperar PiP:', recoverErr);
+                      setPipVideoPlaying(false);
+                    }
                   }
+                };
+
+                if (pipVideoPlaying) {
+                  pip.pause();
+                  setPipVideoPlaying(false);
+                } else {
+                  void tryPlay();
                 }
               }}
               aria-label={pipVideoPlaying ? "Pausar" : "Reproduzir"}

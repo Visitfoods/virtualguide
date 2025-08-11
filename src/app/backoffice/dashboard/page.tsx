@@ -8,24 +8,40 @@ import {
   listenToAllConversations,
   listenToActiveConversations,
   listenToConversation,
-  Conversation, 
+  type Conversation as BackofficeConversation, 
   sendMessage, 
   markAllMessagesAsRead, 
   closeConversation,
   deleteAllConversations
   // reopenConversation - commented out to fix ESLint warning
 } from '../../../firebase/services';
+import {
+  listenToAllMainConversations,
+  listenToActiveMainConversations,
+  listenToMainConversation,
+  listMainConversations,
+  listActiveMainConversations,
+  type Conversation as MainConversation
+} from '../../../firebase/mainServices';
 import styles from '../backoffice.module.css';
 
 export default function BackofficeDashboard() {
-  const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
+  const [conversations, setConversations] = useState<BackofficeConversation[]>([]);
+  const [selectedConversation, setSelectedConversation] = useState<BackofficeConversation | null>(null);
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'active'>('active');
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [role, setRole] = useState<'user' | 'admin'>('user');
+  const [dataSource, setDataSource] = useState<'default' | 'main'>(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('backofficeDataSource') as 'default' | 'main' | null;
+      return stored || 'default';
+    }
+    return 'default';
+  });
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deletingConversations, setDeletingConversations] = useState(false);
   const [visibleConversations, setVisibleConversations] = useState(10); // Mostrar apenas 10 conversas inicialmente
@@ -43,6 +59,13 @@ export default function BackofficeDashboard() {
         router.push('/backoffice/login');
       } else {
         setIsAuthenticated(true);
+        const storedRole = (localStorage.getItem('backofficeRole') as 'user' | 'admin') || 'user';
+        setRole(storedRole);
+        // Admin pode alternar fonte de dados; utilizador fica no default
+        if (storedRole !== 'admin') {
+          setDataSource('default');
+          localStorage.removeItem('backofficeDataSource');
+        }
       }
     };
 
@@ -62,33 +85,63 @@ export default function BackofficeDashboard() {
     setLoading(true);
 
     try {
-      // Configurar escuta em tempo real com base no filtro
-      const unsubscribe = filter === 'all'
-        ? listenToAllConversations((data) => {
-            if (Array.isArray(data)) {
-              setConversations(data);
-              setError(null);
-            } else {
-              console.error('Formato de dados inválido:', data);
-              setError('Erro ao carregar conversas: formato de dados inválido.');
-              setConversations([]);
-            }
-            setLoading(false);
-          })
-        : listenToActiveConversations((data) => {
-            if (Array.isArray(data)) {
-              setConversations(data);
-              setError(null);
-            } else {
-              console.error('Formato de dados inválido:', data);
-              setError('Erro ao carregar conversas: formato de dados inválido.');
-              setConversations([]);
-            }
-            setLoading(false);
-          });
+      // Configurar escuta em tempo real com base no filtro e na fonte de dados
+      let unsubscribe: (() => void) | null = null;
+      if (dataSource === 'default') {
+        unsubscribe = filter === 'all'
+          ? listenToAllConversations((data) => {
+              if (Array.isArray(data)) {
+                setConversations(data);
+                setError(null);
+              } else {
+                console.error('Formato de dados inválido:', data);
+                setError('Erro ao carregar conversas: formato de dados inválido.');
+                setConversations([]);
+              }
+              setLoading(false);
+            })
+          : listenToActiveConversations((data) => {
+              if (Array.isArray(data)) {
+                setConversations(data);
+                setError(null);
+              } else {
+                console.error('Formato de dados inválido:', data);
+                setError('Erro ao carregar conversas: formato de dados inválido.');
+                setConversations([]);
+              }
+              setLoading(false);
+            });
+      } else {
+        // Fonte de dados: página principal (mainDb)
+        const mapMainToBackoffice = (items: MainConversation[]) => {
+          const mapped = items.map((c) => ({
+            id: c.id,
+            userId: c.userId,
+            userName: c.userName,
+            userContact: c.userEmail,
+            status: c.status,
+            createdAt: c.createdAt as unknown as any,
+            updatedAt: c.updatedAt as unknown as any,
+            messages: (c.messages || []).map((m) => ({
+              from: m.from === 'bot' ? 'agent' : 'user',
+              text: m.text,
+              timestamp: m.timestamp,
+              read: m.read,
+            })),
+            unreadCount: (c.messages || []).filter((m) => m.from === 'user' && m.read === false).length,
+          })) as BackofficeConversation[];
+          setConversations(mapped);
+          setError(null);
+          setLoading(false);
+        };
+
+        unsubscribe = filter === 'all'
+          ? listenToAllMainConversations((data) => mapMainToBackoffice(data))
+          : listenToActiveMainConversations((data) => mapMainToBackoffice(data));
+      }
 
       // Guardar a função de unsubscribe para limpeza posterior
-      unsubscribeConversationsRef.current = unsubscribe;
+      unsubscribeConversationsRef.current = unsubscribe || null;
     } catch (err) {
       console.error('Erro ao configurar escuta em tempo real:', err);
       setError(`Erro ao configurar escuta em tempo real: ${err instanceof Error ? err.message : 'Erro desconhecido'}`);
@@ -98,9 +151,33 @@ export default function BackofficeDashboard() {
       // Tentar carregar de forma não tempo real como fallback
       const fetchConversations = async () => {
         try {
-          const data = filter === 'all' 
-            ? await listConversations()
-            : await listActiveConversations();
+          let data: BackofficeConversation[];
+          if (dataSource === 'default') {
+            data = filter === 'all' 
+              ? await listConversations()
+              : await listActiveConversations();
+          } else {
+            const mainData = filter === 'all'
+              ? await listMainConversations()
+              : await listActiveMainConversations();
+            // Mapear
+            data = mainData.map((c) => ({
+              id: c.id,
+              userId: c.userId,
+              userName: c.userName,
+              userContact: c.userEmail,
+              status: c.status,
+              createdAt: c.createdAt as unknown as any,
+              updatedAt: c.updatedAt as unknown as any,
+              messages: (c.messages || []).map((m) => ({
+                from: m.from === 'bot' ? 'agent' : 'user',
+                text: m.text,
+                timestamp: m.timestamp,
+                read: m.read,
+              })),
+              unreadCount: (c.messages || []).filter((m) => m.from === 'user' && m.read === false).length,
+            })) as BackofficeConversation[];
+          }
           
           if (Array.isArray(data)) {
             setConversations(data);
@@ -123,10 +200,10 @@ export default function BackofficeDashboard() {
         unsubscribeConversationsRef.current = null;
       }
     };
-  }, [filter, isAuthenticated, refreshTrigger]); // Adicionado refreshTrigger para forçar a reconfiguração da escuta
+  }, [filter, isAuthenticated, refreshTrigger, dataSource]); // Incluir dataSource
 
   // Selecionar conversa com escuta em tempo real
-  const handleSelectConversation = async (conversation: Conversation) => {
+  const handleSelectConversation = async (conversation: BackofficeConversation) => {
     // Limpar qualquer escuta anterior da conversa selecionada
     if (unsubscribeSelectedConversationRef.current) {
       unsubscribeSelectedConversationRef.current();
@@ -136,24 +213,48 @@ export default function BackofficeDashboard() {
     // Definir a conversa selecionada inicialmente
     setSelectedConversation(conversation);
     
-    // Marcar mensagens como lidas
-    if (conversation.id && conversation.unreadCount && conversation.unreadCount > 0) {
-      try {
-        await markAllMessagesAsRead(conversation.id);
-      } catch (err) {
-        console.error('Erro ao marcar mensagens como lidas:', err);
+    // Marcar mensagens como lidas (apenas para fonte default)
+    if (dataSource === 'default') {
+      if (conversation.id && conversation.unreadCount && conversation.unreadCount > 0) {
+        try {
+          await markAllMessagesAsRead(conversation.id);
+        } catch (err) {
+          console.error('Erro ao marcar mensagens como lidas:', err);
+        }
       }
     }
     
     // Configurar escuta em tempo real para a conversa selecionada
     if (conversation.id) {
       try {
-        const unsubscribe = listenToConversation(conversation.id, (updatedConversation) => {
-          setSelectedConversation(updatedConversation);
-        });
-        
-        // Guardar a função de unsubscribe
-        unsubscribeSelectedConversationRef.current = unsubscribe;
+        if (dataSource === 'default') {
+          const unsubscribe = listenToConversation(conversation.id, (updatedConversation) => {
+            setSelectedConversation(updatedConversation);
+          });
+          unsubscribeSelectedConversationRef.current = unsubscribe;
+        } else {
+          const unsubscribe = listenToMainConversation(conversation.id, (updatedMainConversation) => {
+            // Mapear para o formato do backoffice
+            const mapped: BackofficeConversation = {
+              id: updatedMainConversation.id,
+              userId: updatedMainConversation.userId,
+              userName: updatedMainConversation.userName,
+              userContact: updatedMainConversation.userEmail,
+              status: updatedMainConversation.status,
+              createdAt: updatedMainConversation.createdAt as unknown as string,
+              updatedAt: updatedMainConversation.updatedAt as unknown as string,
+              messages: (updatedMainConversation.messages || []).map((m) => ({
+                from: m.from === 'bot' ? 'agent' : 'user',
+                text: m.text,
+                timestamp: m.timestamp,
+                read: m.read,
+              })),
+              unreadCount: (updatedMainConversation.messages || []).filter((m) => m.from === 'user' && m.read === false).length,
+            };
+            setSelectedConversation(mapped);
+          });
+          unsubscribeSelectedConversationRef.current = unsubscribe;
+        }
       } catch (err) {
         console.error('Erro ao configurar escuta para conversa selecionada:', err);
       }
@@ -207,14 +308,18 @@ export default function BackofficeDashboard() {
               const closingMessageText = "Agradecemos o seu contacto. Esta conversa fica agora encerrada. Caso necessite de mais informações, estaremos sempre ao dispor. Desejamos-lhe um excelente dia no encantador Portugal dos Pequenitos!";
       
       // Enviar a mensagem de despedida
-      await sendMessage(selectedConversation.id, {
-        from: 'agent',
-        text: closingMessageText,
-        read: true
-      });
+      if (dataSource === 'default') {
+        await sendMessage(selectedConversation.id, {
+          from: 'agent',
+          text: closingMessageText,
+          read: true
+        });
+      }
       
       // Fechar a conversa depois de enviar a mensagem
-      await closeConversation(selectedConversation.id);
+      if (dataSource === 'default') {
+        await closeConversation(selectedConversation.id);
+      }
       
       // Limpar a escuta da conversa atual
       if (unsubscribeSelectedConversationRef.current) {
@@ -323,6 +428,10 @@ const formatDate = (dateString: string | { seconds: number } | Date) => {
   // Logout
   const handleLogout = () => {
     localStorage.removeItem('backofficeAuth');
+    localStorage.removeItem('backofficeRole');
+    localStorage.removeItem('backofficeUserId');
+    localStorage.removeItem('backofficeUsername');
+    localStorage.removeItem('backofficeDataSource');
     router.push('/backoffice/login');
   };
 
@@ -375,14 +484,16 @@ const formatDate = (dateString: string | { seconds: number } | Date) => {
             >
               {loading ? 'A carregar...' : 'Atualizar'}
             </button>
-            <button 
-              className={`${styles.deleteAllButton} ${showDeleteConfirm ? styles.danger : ''}`}
-              onClick={handleDeleteAllConversations}
-              disabled={deletingConversations}
-              title={showDeleteConfirm ? 'Clique novamente para confirmar' : 'Apagar todas as conversas'}
-            >
-              {deletingConversations ? 'A apagar...' : showDeleteConfirm ? 'Confirmar Apagar' : 'Apagar Todas'}
-            </button>
+            {dataSource === 'default' && (
+              <button 
+                className={`${styles.deleteAllButton} ${showDeleteConfirm ? styles.danger : ''}`}
+                onClick={handleDeleteAllConversations}
+                disabled={deletingConversations}
+                title={showDeleteConfirm ? 'Clique novamente para confirmar' : 'Apagar todas as conversas'}
+              >
+                {deletingConversations ? 'A apagar...' : showDeleteConfirm ? 'Confirmar Apagar' : 'Apagar Todas'}
+              </button>
+            )}
           </div>
           <button 
             className={styles.logoutButton}
@@ -396,7 +507,36 @@ const formatDate = (dateString: string | { seconds: number } | Date) => {
       {error && <div className={styles.errorMessage}>{error}</div>}
 
       <div className={styles.backofficeContent}>
-        <div className={styles.conversationsList}>
+        {role === 'admin' && (
+          <div className={styles.sidebar}>
+            <div className={styles.sidebarTitle}>Origem dos Dados</div>
+            <button
+              className={`${styles.sidebarButton} ${dataSource === 'default' ? styles.active : ''}`}
+              onClick={() => { setDataSource('default'); localStorage.setItem('backofficeDataSource', 'default'); }}
+            >
+              Portugal dos Pequenitos
+            </button>
+            <button
+              className={`${styles.sidebarButton} ${dataSource === 'main' ? styles.active : ''}`}
+              onClick={() => { setDataSource('main'); localStorage.setItem('backofficeDataSource', 'main'); }}
+            >
+              Página Principal
+            </button>
+            
+            <div style={{ borderTop: '1px solid #555', margin: '20px 0', paddingTop: '20px' }}>
+              <div className={styles.sidebarTitle}>Gestão</div>
+              <button
+                className={styles.sidebarButton}
+                onClick={() => router.push('/backoffice/users')}
+              >
+                Utilizadores
+              </button>
+            </div>
+          </div>
+        )}
+        
+        <div className={styles.mainContentArea}>
+          <div className={styles.conversationsList}>
           <div className={styles.conversationsHeader}>
             <h2>Conversas {filter === 'active' ? 'Ativas' : ''}</h2>
             <button 
@@ -492,7 +632,7 @@ const formatDate = (dateString: string | { seconds: number } | Date) => {
                   <p>{selectedConversation.userContact}</p>
                 </div>
                 <div className={styles.chatActions}>
-                  {selectedConversation.status === 'active' && (
+                  {selectedConversation.status === 'active' && dataSource === 'default' && (
                     <button 
                       className={styles.closeButton}
                       onClick={handleCloseConversation}
@@ -525,7 +665,7 @@ const formatDate = (dateString: string | { seconds: number } | Date) => {
                 ))}
               </div>
 
-              {selectedConversation.status === 'active' ? (
+              {selectedConversation.status === 'active' && dataSource === 'default' ? (
                 <form className={styles.replyForm} onSubmit={handleSendMessage}>
                   <input
                     type="text"
@@ -544,7 +684,11 @@ const formatDate = (dateString: string | { seconds: number } | Date) => {
                 </form>
               ) : (
                 <div className={styles.conversationClosedMessage}>
-                  Esta conversa foi encerrada.
+                  {dataSource === 'default' ? (
+                    'Esta conversa foi encerrada.'
+                  ) : (
+                    'Visualização apenas (chat da página principal).'
+                  )}
                 </div>
               )}
             </>
@@ -553,6 +697,7 @@ const formatDate = (dateString: string | { seconds: number } | Date) => {
               <p>Selecione uma conversa para ver as mensagens</p>
             </div>
           )}
+          </div>
         </div>
       </div>
     </div>
