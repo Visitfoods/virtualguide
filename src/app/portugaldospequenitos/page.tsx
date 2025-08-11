@@ -376,14 +376,7 @@ function DownloadIcon() {
   );
 } */
 
-function SubtitlesIcon({ enabled }: { enabled?: boolean }) {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M4 6h16M4 10h16M4 14h8M4 18h12" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" opacity={enabled ? 1 : 0.5}/>
-      <circle cx="18" cy="14" r="2" stroke="white" strokeWidth="2" fill={enabled ? "white" : "none"}/>
-    </svg>
-  );
-}
+
 
 // ChatIcon component for chat functionality - Commented out to fix ESLint warning
 /* function ChatIcon() {
@@ -399,6 +392,8 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [showGuidePopup, setShowGuidePopup] = useState(false);
+  const [isPromoMode, setIsPromoMode] = useState(false);
+  const [showPromoPopup, setShowPromoPopup] = useState(false);
   const [showStartButton, setShowStartButton] = useState(true);
   const [showActionButtons, setShowActionButtons] = useState(false);
   const [showChatbotPopup, setShowChatbotPopup] = useState(false);
@@ -444,6 +439,19 @@ export default function Home() {
 
   // Simular carregamento inicial com barra de progresso
   useEffect(() => {
+    // Carregar flag de Modo Promoção do Firestore (apenas no cliente)
+    (async () => {
+      try {
+        const { getPromoSettings } = await import('../../firebase/settingsService');
+        const settings = await getPromoSettings();
+        setIsPromoMode(!!settings?.promoMode?.enabled);
+      } catch {
+        setIsPromoMode(false);
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
     const simulateLoading = () => {
       const interval = setInterval(() => {
         setLoadingProgress(prev => {
@@ -472,6 +480,30 @@ export default function Home() {
     loadConversationFromStorage();
   }, []);
 
+  // Controlar vídeos quando popup de promoção estiver aberto
+  useEffect(() => {
+    const forcePauseAll = () => {
+      if (videoRef.current && !videoRef.current.paused) {
+        videoRef.current.pause();
+        setVideoPlaying(false);
+      }
+      if (bgVideoRef.current && !bgVideoRef.current.paused) {
+        bgVideoRef.current.pause();
+      }
+      if (welcomeBgVideoRef.current && !welcomeBgVideoRef.current.paused) {
+        welcomeBgVideoRef.current.pause();
+      }
+    };
+
+    if (showPromoPopup) {
+      // Pausar imediatamente e com retries curtos
+      forcePauseAll();
+      const t1 = setTimeout(forcePauseAll, 50);
+      const t2 = setTimeout(forcePauseAll, 200);
+      return () => { clearTimeout(t1); clearTimeout(t2); };
+    }
+  }, [showPromoPopup]);
+
 
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
@@ -493,9 +525,10 @@ export default function Home() {
   const [pipManuallyClosed, setPipManuallyClosed] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
   const [isTablet, setIsTablet] = useState(false);
-  const [subtitlesEnabled, setSubtitlesEnabled] = useState(true);
   const videoRef = useRef<HTMLVideoElement>(null);
   const pipVideoRef = useRef<HTMLVideoElement>(null);
+  const bgVideoRef = useRef<HTMLVideoElement>(null);
+  const welcomeBgVideoRef = useRef<HTMLVideoElement>(null);
   const chatbotInputRef = useRef<HTMLInputElement>(null);
   const unsubscribeRef = useRef<(() => void) | null>(null);
 
@@ -801,9 +834,9 @@ export default function Home() {
   useEffect(() => {
     const checkDeviceType = () => {
       const width = window.innerWidth;
-      setIsDesktop(width >= 1025);
-      setIsTablet(width >= 768 && width <= 1024);
-      setIsMobile(width < 768);
+        setIsDesktop(width >= 1025);
+        setIsTablet(width >= 768 && width <= 1024);
+        setIsMobile(width < 768);
     };
     
     checkDeviceType();
@@ -1720,49 +1753,7 @@ export default function Home() {
     };
   }, [videoMuted]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Ativar legendas quando os vídeos carregam
-  useEffect(() => {
-    const activateSubtitles = () => {
-      if (videoRef.current) {
-        const tracks = videoRef.current.textTracks;
-        for (let i = 0; i < tracks.length; i++) {
-          if (tracks[i].kind === 'subtitles' || tracks[i].kind === 'captions') {
-            tracks[i].mode = 'showing';
-          }
-        }
-      }
-      
-      if (pipVideoRef.current) {
-        const tracks = pipVideoRef.current.textTracks;
-        for (let i = 0; i < tracks.length; i++) {
-          if (tracks[i].kind === 'subtitles' || tracks[i].kind === 'captions') {
-            tracks[i].mode = 'showing';
-          }
-        }
-      }
-    };
 
-    // Ativar legendas quando o vídeo principal carrega
-    if (videoRef.current) {
-      videoRef.current.addEventListener('loadedmetadata', activateSubtitles);
-    }
-
-    // Ativar legendas quando o vídeo PiP carrega
-    if (pipVideoRef.current) {
-      pipVideoRef.current.addEventListener('loadedmetadata', activateSubtitles);
-    }
-
-    return () => {
-      const video = videoRef.current;
-      const pipVideo = pipVideoRef.current;
-      if (video) {
-        video.removeEventListener('loadedmetadata', activateSubtitles);
-      }
-      if (pipVideo) {
-        pipVideo.removeEventListener('loadedmetadata', activateSubtitles);
-      }
-    };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Banco de conhecimento local para o chatbot
   const knowledgeBase = {
@@ -2278,6 +2269,14 @@ Geralmente responde em poucos minutos.
       setShowChatbotPopup(false);
     }
     
+    // Se estiver em Modo Promoção, mostrar sempre o formulário e não abrir chat direto
+    if (isPromoMode) {
+      setShowGuidePopup(true);
+      setShowHumanChat(false);
+      setShowActionButtons(false);
+      return;
+    }
+
     // Verificar se já existe uma sessão ativa
     const conversationId = getCookie('chat_conversation_id');
     const userName = getCookie('chat_user_name');
@@ -2634,24 +2633,7 @@ Geralmente responde em poucos minutos.
     }
   }
 
-  function toggleSubtitles() {
-    setSubtitlesEnabled(!subtitlesEnabled);
-    
-    // Ativar/desativar legendas nos vídeos
-    if (videoRef.current) {
-      const tracks = videoRef.current.textTracks;
-      for (let i = 0; i < tracks.length; i++) {
-        tracks[i].mode = subtitlesEnabled ? 'hidden' : 'showing';
-      }
-    }
-    
-    if (pipVideoRef.current) {
-      const tracks = pipVideoRef.current.textTracks;
-      for (let i = 0; i < tracks.length; i++) {
-        tracks[i].mode = subtitlesEnabled ? 'hidden' : 'showing';
-      }
-    }
-  }
+
 
   function handleCloseChatbot() {
     setShowChatbotPopup(false);
@@ -2817,6 +2799,24 @@ Geralmente responde em poucos minutos.
     setFormError(null);
     
     try {
+      // Se promoção ativa: apenas guardar contacto e mostrar popup "FUNCIONALIDADE EXTRA"
+      if (isPromoMode) {
+        await saveContactRequest({ name: formName, contact: formContact });
+        setShowPromoPopup(true);
+        setShowGuidePopup(false);
+        setFormName('');
+        setFormContact('');
+        setFormSubmitting(false);
+        
+        // Pausar o vídeo quando o popup de promoção abrir
+        setTimeout(() => {
+          if (videoRef.current) {
+            videoRef.current.pause();
+            setVideoPlaying(false);
+          }
+        }, 100);
+        return;
+      }
       // Enviar dados para o Firebase
       await saveContactRequest({
         name: formName,
@@ -3262,6 +3262,7 @@ Geralmente responde em poucos minutos.
         {/* Vídeo de fundo quando o vídeo principal não está em reprodução */}
         {(!isDesktop || (isDesktop && !showChatbotPopup && !showHumanChat)) && (
           <video
+            ref={bgVideoRef}
             className={styles.backgroundImage}
             src="/Judite_2.mp4"
             autoPlay
@@ -3288,13 +3289,7 @@ Geralmente responde em poucos minutos.
             crossOrigin="anonymous"
             style={{ display: (!isDesktop || (isDesktop && (showChatbotPopup || showHumanChat))) ? 'block' : 'none' }}
           >
-            <track 
-              kind="subtitles" 
-              src={isDesktop ? "/legendas-desktop.vtt" : isTablet ? "/legendas-tablet.vtt" : "/legendas-mobile.vtt"} 
-              srcLang="pt" 
-              label="Português" 
-              default 
-            />
+
           </video>
         )}
         
@@ -3303,6 +3298,7 @@ Geralmente responde em poucos minutos.
           <div className={styles.welcomeOverlay}>
             {/* Vídeo de fundo da welcome page */}
             <video
+              ref={welcomeBgVideoRef}
               className={styles.welcomeBackgroundVideo}
               src="/Judite_2.mp4"
               autoPlay
@@ -3434,13 +3430,6 @@ Geralmente responde em poucos minutos.
               >
                 <DownloadIcon />
               </button>
-              <button 
-                className={styles.controlButton}
-                onClick={toggleSubtitles}
-                title={subtitlesEnabled ? "Desativar legendas" : "Ativar legendas"}
-              >
-                <SubtitlesIcon enabled={subtitlesEnabled} />
-              </button>
             </div>
           </div>
         )}
@@ -3476,15 +3465,15 @@ Geralmente responde em poucos minutos.
                         <div className={styles.chatbotInstructions}>
                           <div className={styles.instructionItem}>
                             <span className={styles.customBullet}></span>
-                            <span>Horários e preços</span>
+                            <span>O que visitar</span>
                           </div>
                           <div className={styles.instructionItem}>
                             <span className={styles.customBullet}></span>
-                            <span>Como chegar</span>
+                            <span>O que comer</span>
                           </div>
                           <div className={styles.instructionItem}>
                             <span className={styles.customBullet}></span>
-                            <span>Monumentos e áreas</span>
+                            <span>Download vídeo</span>
                           </div>
                           <div className={styles.instructionItem}>
                             <span className={styles.customBullet}></span>
@@ -3497,13 +3486,13 @@ Geralmente responde em poucos minutos.
                             onClick={() => {
                               const input = chatbotInputRef.current;
                               if (input) {
-                                input.value = "Perguntar horários e preços";
+                                input.value = "O que visitar no Portugal dos Pequenitos?";
                                 setShowInstructions(false); // Esconder boas-vindas
                                 handleChatbotSend(new Event('submit') as unknown as React.FormEvent);
                               }
                             }}
                           >
-                            Perguntar horários e preços
+                            O que visitar
                           </button>
                           <div className={styles.secondaryActions}>
                             <button 
@@ -3511,26 +3500,41 @@ Geralmente responde em poucos minutos.
                               onClick={() => {
                                 const input = chatbotInputRef.current;
                                 if (input) {
-                                                                  input.value = "Como chegar";
-                                setShowInstructions(false); // Esconder boas-vindas
-                                handleChatbotSend(new Event('submit') as unknown as React.FormEvent);
+                                  input.value = "O que comer no Portugal dos Pequenitos?";
+                                  setShowInstructions(false); // Esconder boas-vindas
+                                  handleChatbotSend(new Event('submit') as unknown as React.FormEvent);
                                 }
                               }}
                             >
-                              Como chegar
+                              O que comer
                             </button>
                             <button 
                               className={styles.secondaryActionButton}
                               onClick={() => {
-                                const input = chatbotInputRef.current;
-                                if (input) {
-                                                                  input.value = "Monumentos";
-                                setShowInstructions(false); // Esconder boas-vindas
-                                handleChatbotSend(new Event('submit') as unknown as React.FormEvent);
+                                // Fazer download do vídeo principal
+                                if (videoRef.current) {
+                                  const video = videoRef.current;
+                                  const canvas = document.createElement('canvas');
+                                  const ctx = canvas.getContext('2d');
+                                  
+                                  if (ctx && video.videoWidth && video.videoHeight) {
+                                    canvas.width = video.videoWidth;
+                                    canvas.height = video.videoHeight;
+                                    ctx.drawImage(video, 0, 0);
+                                    
+                                    // Criar link de download
+                                    const link = document.createElement('a');
+                                    link.download = 'portugal-dos-pequenitos-video.mp4';
+                                    link.href = video.src;
+                                    document.body.appendChild(link);
+                                    link.click();
+                                    document.body.removeChild(link);
+                                  }
                                 }
+                                setShowInstructions(false); // Esconder boas-vindas
                               }}
                             >
-                              Monumentos
+                              Download vídeo
                             </button>
                           </div>
                         </div>
@@ -3601,39 +3605,54 @@ Geralmente responde em poucos minutos.
                       onClick={() => {
                         const input = chatbotInputRef.current;
                         if (input) {
-                          input.value = 'Perguntar horários e preços';
+                          input.value = 'O que visitar no Portugal dos Pequenitos?';
                           handleChatbotSend(new Event('submit') as unknown as React.FormEvent);
                         }
                       }}
-                      aria-label="Perguntar horários e preços"
+                      aria-label="O que visitar"
                     >
-                      Horários e preços
+                      O que visitar
                     </button>
                     <button
                       className={styles.quickSuggestionBtn}
                       onClick={() => {
                         const input = chatbotInputRef.current;
                         if (input) {
-                          input.value = 'Como chegar';
+                          input.value = 'O que comer no Portugal dos Pequenitos?';
                           handleChatbotSend(new Event('submit') as unknown as React.FormEvent);
                         }
                       }}
-                      aria-label="Como chegar"
+                      aria-label="O que comer"
                     >
-                      Como chegar
+                      O que comer
                     </button>
                     <button
                       className={styles.quickSuggestionBtn}
                       onClick={() => {
-                        const input = chatbotInputRef.current;
-                        if (input) {
-                          input.value = 'Monumentos';
-                          handleChatbotSend(new Event('submit') as unknown as React.FormEvent);
+                        // Fazer download do vídeo principal
+                        if (videoRef.current) {
+                          const video = videoRef.current;
+                          const canvas = document.createElement('canvas');
+                          const ctx = canvas.getContext('2d');
+                          
+                          if (ctx && video.videoWidth && video.videoHeight) {
+                            canvas.width = video.videoWidth;
+                            canvas.height = video.videoHeight;
+                            ctx.drawImage(video, 0, 0);
+                            
+                            // Criar link de download
+                            const link = document.createElement('a');
+                            link.download = 'portugal-dos-pequenitos-video.mp4';
+                            link.href = video.src;
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                          }
                         }
                       }}
-                      aria-label="Monumentos"
+                      aria-label="Download vídeo"
                     >
-                      Monumentos
+                      Download vídeo
                     </button>
                   </div>
                 )}
@@ -3686,7 +3705,14 @@ Geralmente responde em poucos minutos.
           <div className={styles.guidePopupOverlay}>
             <div className={styles.guidePopup}>
               <div className={styles.guidePopupHeader}>
-                <h3>FALAR COM GUIA REAL</h3>
+                {isPromoMode ? (
+                  <div>
+                    <h3 style={{ color: 'red' }}>FUNCIONALIDADE EXTRA</h3>
+                    <h3>Falar com o Guia Real</h3>
+                  </div>
+                ) : (
+                  <h3>FALAR COM GUIA REAL</h3>
+                )}
                 <button 
                   className={styles.closeChatbotButton} 
                   onClick={() => {
@@ -4244,6 +4270,45 @@ Geralmente responde em poucos minutos.
           >
             X
           </button>
+        </div>
+      )}
+
+      {/* Popup de Promoção */}
+      {showPromoPopup && (
+        <div 
+          className={styles.guidePopupOverlay}
+          onMouseEnter={() => {
+            // Garantir que o vídeo esteja pausado quando o popup estiver visível
+            if (videoRef.current && !videoRef.current.paused) {
+              videoRef.current.pause();
+              setVideoPlaying(false);
+            }
+          }}
+        >
+          <div className={styles.guidePopup} style={{ maxWidth: '400px', textAlign: 'center' }}>
+            <div className={styles.guidePopupHeader}>
+              <h3 style={{ color: 'red', margin: '0 0 20px 0' }}>FUNCIONALIDADE EXTRA</h3>
+              <button 
+                className={styles.closeChatbotButton} 
+                onClick={() => setShowPromoPopup(false)}
+                aria-label="Fechar"
+              >
+                <CloseIcon />
+              </button>
+            </div>
+            <div className={styles.guidePopupContent}>
+              <p style={{ fontSize: '18px', margin: '20px 0' }}>
+                Esta é uma funcionalidade extra
+              </p>
+              <button 
+                className={styles.guideSubmitButton}
+                onClick={() => setShowPromoPopup(false)}
+                style={{ marginTop: '20px' }}
+              >
+                OK
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </>

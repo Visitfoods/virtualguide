@@ -1141,6 +1141,7 @@ a.secondary {
   background: #f0f0f0;
   color: #333;
   padding: 16px 20px;
+  text-transform: uppercase;
 }
 
 .guidePopupHeader h3 {
@@ -1893,13 +1894,9 @@ a.secondary {
   justify-content: center;
   align-items: center;
   gap: 8px;
-  opacity: 0;
+  opacity: 1;
   transition: opacity 0.2s ease;
   pointer-events: auto; /* Permitir interação com os controlos */
-}
-
-.pipVideoContainer:hover .pipControls {
-  opacity: 1;
 }
 
 .pipPlayPauseButton {
@@ -2856,13 +2853,14 @@ a.secondary {
   border: none;
   border-radius: 25px;
   padding: 14px 24px;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.3s ease;
   width: 100%;
   text-align: center;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  text-transform: uppercase;
 }
 
 .primaryActionButton:hover {
@@ -2882,12 +2880,19 @@ a.secondary {
   border: 1px solid #e0e0e0;
   border-radius: 20px;
   padding: 10px 16px;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.3s ease;
   flex: 1;
   text-align: center;
+  text-transform: uppercase;
+}
+
+@media (max-width: 1024px) {
+  .secondaryActionButton {
+    font-size: 10px;
+  }
 }
 
 .secondaryActionButton:hover {
@@ -6068,7 +6073,7 @@ body:has(.guidePopupOverlay) {
 
 .chatLinkBar span {
   color: white !important;
-  font-size: 10px !important;
+  font-size: 11px !important;
 }
 .chatLinkBar svg {
   display: none!important;
@@ -6120,7 +6125,7 @@ body:has(.guidePopupOverlay) {
 
 @media (max-width: 480px) {
   .chatLinkBar {
-    padding: 8px 12px;
+    padding: 5px 12px;
   }
 
   .chatLink {
@@ -6526,7 +6531,7 @@ body:has(.guidePopupOverlay) {
 
          .flagsGroup {
            display: flex;
-           gap: 8px;
+           gap: 15px;
          }
 
          .flagsContainer {
@@ -6553,7 +6558,7 @@ body:has(.guidePopupOverlay) {
 
 .quickSuggestionsBar {
   display: flex;
-  gap: 8px;
+  gap: 15px;
   align-items: center;
   justify-content: center;
   padding: 6px 10px;

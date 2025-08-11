@@ -24,6 +24,7 @@ import {
   type Conversation as MainConversation
 } from '../../../firebase/mainServices';
 import styles from '../backoffice.module.css';
+import { getPromoSettings, updatePromoSettings } from '../../../firebase/settingsService';
 
 export default function BackofficeDashboard() {
   const [conversations, setConversations] = useState<BackofficeConversation[]>([]);
@@ -45,6 +46,8 @@ export default function BackofficeDashboard() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deletingConversations, setDeletingConversations] = useState(false);
   const [visibleConversations, setVisibleConversations] = useState(10); // Mostrar apenas 10 conversas inicialmente
+  const [promoEnabled, setPromoEnabled] = useState<boolean>(false);
+  const [loadingPromo, setLoadingPromo] = useState<boolean>(false);
   const router = useRouter();
   
   // Referências para os unsubscribes das escutas em tempo real
@@ -71,6 +74,25 @@ export default function BackofficeDashboard() {
 
     checkAuth();
   }, [router]);
+
+  // Carregar estado do Modo Promoção (apenas admin)
+  useEffect(() => {
+    if (!isAuthenticated || role !== 'admin') return;
+    let mounted = true;
+    (async () => {
+      try {
+        setLoadingPromo(true);
+        const settings = await getPromoSettings();
+        if (!mounted) return;
+        setPromoEnabled(!!settings?.promoMode?.enabled);
+      } catch (e) {
+        setPromoEnabled(false);
+      } finally {
+        setLoadingPromo(false);
+      }
+    })();
+    return () => { mounted = false; };
+  }, [isAuthenticated, role]);
 
   // Carregar conversas em tempo real
   useEffect(() => {
@@ -531,6 +553,30 @@ const formatDate = (dateString: string | { seconds: number } | Date) => {
               >
                 Utilizadores
               </button>
+              {dataSource === 'default' && (
+                <div style={{ marginTop: 16 }}>
+                  <div className={styles.sidebarTitle}>Modo Promoção (Guia Real)</div>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <input
+                      type="checkbox"
+                      checked={promoEnabled}
+                      disabled={loadingPromo}
+                      onChange={async (e) => {
+                        const next = e.target.checked;
+                        setPromoEnabled(next);
+                        try {
+                          const userId = localStorage.getItem('backofficeUserId') || 'admin';
+                          await updatePromoSettings({ promoMode: { enabled: next } }, userId);
+                        } catch (err) {
+                          setPromoEnabled(!next);
+                          alert('Falha ao atualizar o modo promoção.');
+                        }
+                      }}
+                    />
+                    {promoEnabled ? 'Ativo' : 'Desativo'}
+                  </label>
+                </div>
+              )}
             </div>
           </div>
         )}
