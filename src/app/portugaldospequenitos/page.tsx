@@ -480,29 +480,7 @@ export default function Home() {
     loadConversationFromStorage();
   }, []);
 
-  // Controlar vídeos quando popup de promoção estiver aberto
-  useEffect(() => {
-    const forcePauseAll = () => {
-      if (videoRef.current && !videoRef.current.paused) {
-        videoRef.current.pause();
-        setVideoPlaying(false);
-      }
-      if (bgVideoRef.current && !bgVideoRef.current.paused) {
-        bgVideoRef.current.pause();
-      }
-      if (welcomeBgVideoRef.current && !welcomeBgVideoRef.current.paused) {
-        welcomeBgVideoRef.current.pause();
-      }
-    };
 
-    if (showPromoPopup) {
-      // Pausar imediatamente e com retries curtos
-      forcePauseAll();
-      const t1 = setTimeout(forcePauseAll, 50);
-      const t2 = setTimeout(forcePauseAll, 200);
-      return () => { clearTimeout(t1); clearTimeout(t2); };
-    }
-  }, [showPromoPopup]);
 
 
   const [isDragging, setIsDragging] = useState(false);
@@ -526,6 +504,35 @@ export default function Home() {
   const [isDesktop, setIsDesktop] = useState(false);
   const [isTablet, setIsTablet] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
+
+  // Controlar vídeos quando popup de promoção estiver aberto
+  useEffect(() => {
+    // Em PC, não fazer nada - vídeos continuam sempre a reproduzir
+    if (isDesktop) {
+      return;
+    }
+
+    const forcePauseAll = () => {
+      if (videoRef.current && !videoRef.current.paused) {
+        videoRef.current.pause();
+        setVideoPlaying(false);
+      }
+      if (bgVideoRef.current && !bgVideoRef.current.paused) {
+        bgVideoRef.current.pause();
+      }
+      if (welcomeBgVideoRef.current && !welcomeBgVideoRef.current.paused) {
+        welcomeBgVideoRef.current.pause();
+      }
+    };
+
+    if (showPromoPopup) {
+      // Pausar imediatamente e com retries curtos
+      forcePauseAll();
+      const t1 = setTimeout(forcePauseAll, 50);
+      const t2 = setTimeout(forcePauseAll, 200);
+      return () => { clearTimeout(t1); clearTimeout(t2); };
+    }
+  }, [showPromoPopup, isDesktop]);
   const pipVideoRef = useRef<HTMLVideoElement>(null);
   const bgVideoRef = useRef<HTMLVideoElement>(null);
   const welcomeBgVideoRef = useRef<HTMLVideoElement>(null);
@@ -3707,7 +3714,7 @@ Geralmente responde em poucos minutos.
               <div className={styles.guidePopupHeader}>
                 {isPromoMode ? (
                   <div>
-                    <h3 style={{ color: 'red' }}>FUNCIONALIDADE EXTRA</h3>
+                    <h3 style={{ color: 'red'}}>FUNCIONALIDADE EXTRA</h3>
                     <h3>Falar com o Guia Real</h3>
                   </div>
                 ) : (
@@ -4278,32 +4285,41 @@ Geralmente responde em poucos minutos.
         <div 
           className={styles.guidePopupOverlay}
           onMouseEnter={() => {
-            // Garantir que o vídeo esteja pausado quando o popup estiver visível
+            // Em PC, manter vídeos de fundo sempre a reproduzir
+            if (isDesktop) {
+              // Não pausar os vídeos de fundo em PC
+              return;
+            }
+            // Em mobile, pausar o vídeo principal quando o popup estiver visível
             if (videoRef.current && !videoRef.current.paused) {
               videoRef.current.pause();
               setVideoPlaying(false);
             }
           }}
         >
-          <div className={styles.guidePopup} style={{ maxWidth: '400px', textAlign: 'center' }}>
+          <div className={styles.guidePopup} style={{ maxWidth: '450px', textAlign: 'center' }}>
             <div className={styles.guidePopupHeader}>
-              <h3 style={{ color: 'red', margin: '0 0 20px 0' }}>FUNCIONALIDADE EXTRA</h3>
+              <h3 style={{ color: 'red', margin: '0 0 8px 0', fontSize: '20px' }}>FUNCIONALIDADE EXTRA</h3>
               <button 
                 className={styles.closeChatbotButton} 
-                onClick={() => setShowPromoPopup(false)}
+                onClick={() => {
+                  setShowPromoPopup(false);
+                }}
                 aria-label="Fechar"
               >
                 <CloseIcon />
               </button>
             </div>
             <div className={styles.guidePopupContent}>
-              <p style={{ fontSize: '18px', margin: '20px 0' }}>
+              <p style={{ fontSize: '16px', margin: '8px 0' }}>
                 Esta é uma funcionalidade extra
               </p>
               <button 
                 className={styles.guideSubmitButton}
-                onClick={() => setShowPromoPopup(false)}
-                style={{ marginTop: '20px' }}
+                onClick={() => {
+                  setShowPromoPopup(false);
+                }}
+                style={{ marginTop: '8px' }}
               >
                 OK
               </button>
