@@ -2785,6 +2785,20 @@ a.secondary {
   line-height: 1.4;
 }
 
+@media (max-width: 700px) {
+  .instructionItem {
+    font-size: 0.9rem;
+    gap: 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .instructionItem {
+    font-size: 0.8rem;
+    gap: 8px;
+  }
+}
+
 .customBullet {
   width: 16px;
   height: 16px;
@@ -6606,6 +6620,90 @@ body:has(.guidePopupOverlay) {
 @media (max-width: 360px) {
   .quickSuggestionBtn {
     font-size: 10px;
+  }
+}
+
+.actionButtons {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+  width: 100%;
+}
+
+.primaryActionButton {
+  background: white;
+  color: #333;
+  border: 1px solid #e0e0e0;
+  border-radius: 20px;
+  padding: 10px 16px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  flex: 1;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.primaryActionButton:hover {
+  background: #f8f8f8;
+  border-color: #ccc;
+  transform: translateY(-1px);
+}
+
+.secondaryActions {
+  display: flex;
+  gap: 8px;
+  flex: 3;
+}
+
+.secondaryActionButton {
+  background: white;
+  color: #333;
+  border: 1px solid #e0e0e0;
+  border-radius: 20px;
+  padding: 10px 16px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  flex: 1;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+@media (max-width: 1024px) {
+  .secondaryActionButton {
+    font-size: 10px;
+  }
+  
+  .primaryActionButton {
+    font-size: 10px;
+  }
+}
+
+@media (max-width: 700px) {
+  .actionButtons {
+    gap: 6px;
+  }
+  
+  .primaryActionButton,
+  .secondaryActionButton {
+    padding: 8px 12px;
+    font-size: 9px;
+  }
+}
+
+@media (max-width: 480px) {
+  .actionButtons {
+    gap: 4px;
+  }
+  
+  .primaryActionButton,
+  .secondaryActionButton {
+    padding: 6px 8px;
+    font-size: 8px;
   }
 }
 

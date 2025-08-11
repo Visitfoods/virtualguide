@@ -93,7 +93,26 @@ export default function Home() {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const chatbotInputRef = useRef<HTMLInputElement>(null);
 
+  // Estados para o loader
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadingProgress, setLoadingProgress] = useState(0);
 
+  // Simular carregamento inicial com barra de progresso
+  const simulateLoading = () => {
+    const interval = setInterval(() => {
+      setLoadingProgress(prev => {
+        if (prev >= 100) {
+          clearInterval(interval);
+          // Adicionar um pequeno delay antes de esconder o loading
+          setTimeout(() => {
+            setIsLoading(false);
+          }, 500);
+          return 100;
+        }
+        return prev + 2;
+      });
+    }, 100); // Intervalo mais rápido para progresso mais suave
+  };
 
   // Carregar conversationId do localStorage
   useEffect(() => {
@@ -117,6 +136,11 @@ export default function Home() {
       document.body.style.overflow = 'auto';
     };
   }, [showChatbotPopup]);
+
+  // Iniciar simulação de carregamento
+  useEffect(() => {
+    simulateLoading();
+  }, []);
 
   // Banco de conhecimento local para o chatbot da página principal
   const knowledgeBase = {
@@ -578,25 +602,63 @@ Always Respond in European Portuguese
 
   return (
     <div className={`${styles.bgVideoContainer} ${showChatbotPopup ? styles.chatbotOpen : ''}`}>
-      {/* Barra de bandeiras no topo */}
-      <div className={styles.flagsBar}>
-        <div className={styles.flagsContainer}>
-          <div className={styles.flagsGroup}>
-            <div className={styles.flagItem} onClick={() => handleFlagClick('portugal')}>
-              <PortugalFlag />
+      {/* Loading Screen */}
+      {isLoading && (
+        <div className={styles.loadingOverlay}>
+          <div className={styles.loadingContent}>
+            <div className={styles.logoContainer}>
+              <img 
+                src="/Icon Virtualguide.svg" 
+                alt="VirtualGuide Logo" 
+                className={styles.loadingLogo}
+              />
             </div>
-            <div className={styles.flagItem} onClick={() => handleFlagClick('england')}>
-              <EnglandFlag />
-            </div>
-            <div className={styles.flagItem} onClick={() => handleFlagClick('spain')}>
-              <SpainFlag />
-            </div>
-            <div className={styles.flagItem} onClick={() => handleFlagClick('france')}>
-              <FranceFlag />
+            <h2 className={styles.loadingTitle}>A preparar o teu guia</h2>
+            <div className={styles.loadingProgressContainer}>
+              <div className={styles.loadingProgressBar}>
+                <div 
+                  className={styles.loadingProgressFill}
+                  style={{ width: `${loadingProgress}%` }}
+                ></div>
+              </div>
+              <span className={styles.loadingProgressText}>{Math.round(loadingProgress)}%</span>
             </div>
           </div>
         </div>
-      </div>
+      )}
+
+      {/* Barra de bandeiras no topo */}
+        <div className={styles.flagsBar}>
+          <div className={styles.flagsContainer}>
+            {/* Botão de voltar para chat - aparece quando há conversa no chat e não está aberto */}
+            {chatbotMessages.length > 0 && !showChatbotPopup && (
+              <button 
+                className={styles.backToChatButton}
+                onClick={() => {
+                  setShowChatbotPopup(true);
+                }}
+                title="Voltar ao chat"
+                aria-label="Voltar ao chat"
+              >
+                <span className={styles.buttonText}>voltar conversa</span>
+              </button>
+            )}
+            <div className={styles.flagsGroup}>
+              <div className={styles.flagItem} onClick={() => handleFlagClick('portugal')}>
+                <PortugalFlag />
+              </div>
+              <div className={styles.flagItem} onClick={() => handleFlagClick('england')}>
+                <EnglandFlag />
+              </div>
+              <div className={styles.flagItem} onClick={() => handleFlagClick('spain')}>
+                <SpainFlag />
+              </div>
+              <div className={styles.flagItem} onClick={() => handleFlagClick('france')}>
+                <FranceFlag />
+              </div>
+            </div>
+          </div>
+        </div>
 
       {/* Vídeo de fundo */}
       <video
@@ -664,12 +726,6 @@ Always Respond in European Portuguese
               </button>
             </div>
             <div className={styles.guidePopupContent}>
-              <p>
-                Para iniciar a conversa, precisamos dos seus dados de contacto.
-                <br />
-                Estes dados serão utilizados apenas para melhorar o nosso atendimento.
-              </p>
-              
               {formError && (
                 <div className={styles.formError}>
                   {formError}
@@ -744,23 +800,32 @@ Always Respond in European Portuguese
                 <div className={styles.chatbotWelcome}>
                   {showInstructions && (
                     <div className={styles.glassmorphismBox}>
-                      <p className={styles.chatbotInstructions}>
-                        Sou o assistente virtual do Virtual Guide
-                        <br />
-                        Estou aqui para o apoiar em tudo o que precisar:
-                        <br />
-                        🟢 O que é o Virtual Guide ?
-                        <br />
-                        🟢 Em que locais está implementado o Virtual Guide ?
-                        <br />
-                        🟢 Como Funciona a assistência técnica ?
-                        <br />
-                        🟢 Que tipos de conteúdos multimédia são disponibilizados (áudio, vídeo, realidade aumentada, etc.) ?
-                        <br />
-                        🟢 Em que dispositivos o VirtualGuide está disponível ?
-                        <br />
-                        🟢 O VirtualGuide está disponível em várias línguas ?
-                      </p>
+                      <div className={styles.chatbotInstructions}>
+                        <div className={styles.instructionItem}>
+                          <div className={styles.customBullet}></div>
+                          <span>O que é o Virtual Guide ?</span>
+                        </div>
+                        <div className={styles.instructionItem}>
+                          <div className={styles.customBullet}></div>
+                          <span>Em que locais está implementado o Virtual Guide ?</span>
+                        </div>
+                        <div className={styles.instructionItem}>
+                          <div className={styles.customBullet}></div>
+                          <span>Como funciona a assistência técnica ?</span>
+                        </div>
+                        <div className={styles.instructionItem}>
+                          <div className={styles.customBullet}></div>
+                          <span>Que tipos de conteúdos multimédia são disponibilizados (áudio, vídeo, realidade aumentada, etc.) ?</span>
+                        </div>
+                        <div className={styles.instructionItem}>
+                          <div className={styles.customBullet}></div>
+                          <span>Em que dispositivos o Virtual Guide está disponível ?</span>
+                        </div>
+                        <div className={styles.instructionItem}>
+                          <div className={styles.customBullet}></div>
+                          <span>O Virtual Guide está disponível em várias línguas ?</span>
+                        </div>
+                      </div>
                     </div>
                   )}
             </div>
