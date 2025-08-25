@@ -655,7 +655,7 @@ export default function SelectDataSource() {
 
       const updatePayload: any = {
         name: guideData.name.trim(),
-        // slug poderá ser alterado em edição
+        // slug não é alterado em edição para simplificar
         company: guideData.company.trim(),
         metaTitle: (guideData as any).metaTitle?.trim?.() || '',
         metaDescription: (guideData as any).metaDescription?.trim?.() || '',
@@ -703,25 +703,7 @@ export default function SelectDataSource() {
         updatedAt: serverTimestamp()
       };
 
-      const oldSlug = String(editingGuide.slug);
-      const newSlug = guideData.slug.trim();
-      const slugChanged = newSlug && newSlug !== oldSlug;
-
-      if (slugChanged) {
-        // Validar duplicação antes de renomear
-        const exists = await slugExists(newSlug);
-        if (exists) {
-          alert(`Já existe um guia com o link "/${newSlug}". Escolha outro nome de link.`);
-          setCreating(false);
-          return;
-        }
-        // Criar/atualizar no novo slug
-        await setDoc(doc(db, 'guides', newSlug), { ...updatePayload, slug: newSlug }, { merge: true });
-        // Remover documento antigo
-        try { await deleteDoc(doc(db, 'guides', oldSlug)); } catch {}
-      } else {
-        await setDoc(doc(db, 'guides', oldSlug), updatePayload, { merge: true });
-      }
+      await setDoc(doc(db, 'guides', editingGuide.slug), updatePayload, { merge: true });
 
       alert('Alterações guardadas com sucesso!');
       setShowCreateGuideModal(false);
@@ -1522,6 +1504,7 @@ export default function SelectDataSource() {
                         onChange={(e) => handleInputChange('slug', e.target.value)}
                         placeholder="licor-beirao"
                          className={styles.formInput}
+                         disabled={isEditMode}
                       />
                     </div>
                     <small className={styles.formHelp}>

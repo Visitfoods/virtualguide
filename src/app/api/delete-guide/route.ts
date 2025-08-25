@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { requireAdmin } from '@/middleware/authMiddleware';
 import { initializeApp, getApps } from 'firebase/app';
 import { getFirestore, doc, deleteDoc } from 'firebase/firestore';
 
@@ -23,26 +24,20 @@ const getTargetDb = () => {
   return getFirestore(app);
 };
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
-    const { slug, userId, userRole } = await request.json() as {
+    // Autenticação forte: requer Bearer token + X-Session-ID válidos com role admin
+    const guard = await requireAdmin()(request);
+    if (guard) return guard;
+
+    const { slug } = await request.json() as {
       slug: string;
-      userId: string;
-      userRole: string;
     };
     
-    if (!slug || !userId || !userRole) {
+    if (!slug) {
       return NextResponse.json(
-        { error: 'Dados insuficientes para eliminar o guia' },
+        { error: 'Parâmetros inválidos: slug em falta' },
         { status: 400 }
-      );
-    }
-
-    // Verificar se o utilizador tem permissões (apenas admin)
-    if (userRole !== 'admin') {
-      return NextResponse.json(
-        { error: 'Permissões insuficientes para eliminar guias' },
-        { status: 403 }
       );
     }
 
