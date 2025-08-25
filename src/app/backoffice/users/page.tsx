@@ -604,6 +604,9 @@ export default function UserManagement() {
                           <button 
                             className={`${styles.filterButton} ${styles.actionBtn}`}
                             onClick={() => handleToggleActive(userItem)}
+                            disabled={userItem.role === 'admin' && userItem.active && users.filter(u => u.role === 'admin' && u.active).length <= 1}
+                            title={(userItem.role === 'admin' && userItem.active && users.filter(u => u.role === 'admin' && u.active).length <= 1) ? 'Não é possível desativar o último admin' : (userItem.active ? 'Desativar' : 'Ativar')}
+                            style={(userItem.role === 'admin' && userItem.active && users.filter(u => u.role === 'admin' && u.active).length <= 1) ? { opacity: 0.6, cursor: 'not-allowed' } as React.CSSProperties : undefined}
                           >
                             {userItem.active ? 'Desativar' : 'Ativar'}
                           </button>

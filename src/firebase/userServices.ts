@@ -160,6 +160,23 @@ export const updateUser = async (userId: string, updates: Partial<Omit<User, 'id
       }
     }
     
+    // Prevenir desativação do último admin ativo
+    if (typeof updates.active === 'boolean' && updates.active === false) {
+      const currentDoc = await getDoc(userRef);
+      if (!currentDoc.exists()) {
+        throw new Error('Utilizador não encontrado');
+      }
+      const currentData = currentDoc.data() as User;
+      if (currentData.role === 'admin' && currentData.active === true) {
+        const activeAdminsSnap = await getDocs(
+          query(collection(mainDb, 'users'), where('role', '==', 'admin'), where('active', '==', true))
+        );
+        if (activeAdminsSnap.size <= 1) {
+          throw new Error('Não é possível desativar o último utilizador admin.');
+        }
+      }
+    }
+    
     const updateData = {
       ...updates,
       updatedAt: new Date().toISOString()
@@ -203,6 +220,16 @@ export const toggleUserActive = async (userId: string): Promise<void> => {
     }
     
     const currentData = userDoc.data() as User;
+
+    // Se for admin e estiver ativo, impedir que fique inativo se for o último admin ativo
+    if (currentData.role === 'admin' && currentData.active === true) {
+      const activeAdminsSnap = await getDocs(
+        query(collection(mainDb, 'users'), where('role', '==', 'admin'), where('active', '==', true))
+      );
+      if (activeAdminsSnap.size <= 1) {
+        throw new Error('Não é possível desativar o último utilizador admin.');
+      }
+    }
     await updateDoc(userRef, {
       active: !currentData.active,
       updatedAt: new Date().toISOString()
