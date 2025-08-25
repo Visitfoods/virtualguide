@@ -1,6 +1,10 @@
 'use client';
 import styles from "./page.module.css";
 import React, { useState, useRef, useEffect, FormEvent, useCallback } from "react";
+import MobileOptimizedVideo from "../../../components/MobileOptimizedVideo";
+import PiPOptimizedVideo from "../../../components/PiPOptimizedVideo";
+import { useVideoOptimization, usePiPOptimization } from "../../../hooks/useVideoOptimization";
+import VideoOptimizationStatus from "../../../components/VideoOptimizationStatus";
 import Image from "next/image";
 import { saveContactRequest, createConversation, sendMessage, listenToConversation, closeConversation, type Conversation, type ChatMessage, getConversation } from "../../../firebase/services";
 
@@ -336,6 +340,9 @@ function DownloadIcon() {
 } */
 
 export default function Home({ guideVideos, guideSlug }: { guideVideos: { backgroundVideoURL: string | null; welcomeVideoURL: string | null; systemPrompt: string | null; chatConfig?: { welcomeTitle?: string | null; button1Text?: string | null; button1Function?: string | null; button2Text?: string | null; button2Function?: string | null; button3Text?: string | null; button3Function?: string | null; downloadVideoEnabled?: boolean | null } | null; helpPoints?: { point1?: string | null; point2?: string | null; point3?: string | null; point4?: string | null; point5?: string | null } | null; humanChatEnabled?: boolean | null; faq?: { name: string; questions: { question: string; answer: string; }[] }[] | null; contactInfo?: { phoneNumber: string; address: string; callUsTitle: string; callUsDescription: string; visitUsTitle: string; visitUsDescription: string; liveChatTitle: string; liveChatDescription: string; liveChatButtonText: string; mapEmbedUrl: string; email?: string | null } | null; chatIconURL?: string | null }, guideSlug: string }) {
+  // Hooks de otimização
+  const videoOptimization = useVideoOptimization();
+  const pipOptimization = usePiPOptimization();
   // UI state variables
   const [isLoading, setIsLoading] = useState(true);
   const [loadingProgress, setLoadingProgress] = useState(0);
@@ -4500,18 +4507,17 @@ export default function Home({ guideVideos, guideSlug }: { guideVideos: { backgr
 
         {/* Vídeo principal - só mostrar quando não está na welcome page */}
         {!showStartButton && (
-          <video
+          <MobileOptimizedVideo
             ref={videoRef}
             className={styles.bgVideo}
             src={toStreamUrl(guideVideos?.welcomeVideoURL) || "/VirtualGuide_PortugaldosPequeninos.webm"}
-            preload={isSlowNetwork ? 'metadata' : 'auto'}
+            preload={videoOptimization.recommendedPreload}
             onCanPlayThrough={() => { setMainVideoLoaded(true); setMainVideoLoading(false); setMainVideoProgress(100); }}
             onPlay={() => { setVideoPlaying(true); setPreferHold(false); }}
             onPause={() => setVideoPlaying(false)}
-            onError={(e) => {
+            onError={(e: any) => {
               setMainVideoError(true);
               setMainVideoLoading(false);
-              console.error('❌ Erro ao carregar vídeo principal:', e);
               console.error('❌ Erro ao carregar vídeo principal:', e);
               console.log('🔍 URL do vídeo principal:', guideVideos?.welcomeVideoURL);
               const video = e.currentTarget;
@@ -4567,7 +4573,7 @@ export default function Home({ guideVideos, guideSlug }: { guideVideos: { backgr
               }
               return <track default kind="subtitles" src={desktopSrc} srcLang="pt" label="Português" />;
             })()}
-          </video>
+          </MobileOptimizedVideo>
         )}
 
         {/* Loader do vídeo principal removido conforme pedido */}
@@ -4586,7 +4592,7 @@ export default function Home({ guideVideos, guideSlug }: { guideVideos: { backgr
         {showStartButton && (
           <div className={styles.welcomeOverlay}>
             {/* Vídeo de fundo da welcome page */}
-            <video
+            <MobileOptimizedVideo
               ref={welcomeBgVideoRef}
               className={styles.welcomeBackgroundVideo}
               src={toStreamUrl(guideVideos?.backgroundVideoURL) || "/Judite_2.mp4"}
@@ -4595,8 +4601,8 @@ export default function Home({ guideVideos, guideSlug }: { guideVideos: { backgr
               muted
               playsInline
               crossOrigin="anonymous"
-              preload={isSlowNetwork ? 'metadata' : 'auto'}
-              onError={(e) => {
+                          preload={videoOptimization.recommendedPreload}
+            onError={(e: any) => {
                 console.error('❌ Erro ao carregar vídeo de fundo (welcome):', e);
                 const video = e.currentTarget;
                 if (guideVideos?.backgroundVideoURL && !String(video.src).includes('/vg-video/')) {
@@ -5652,16 +5658,16 @@ export default function Home({ guideVideos, guideSlug }: { guideVideos: { backgr
           onTouchStart={handleDragStart}
           onClick={handlePipBackToHome}
         >
-          <video
+          <PiPOptimizedVideo
             ref={pipVideoRef}
             className={styles.pipVideo}
             src={toStreamUrl(guideVideos?.welcomeVideoURL) || "/VirtualGuide_PortugaldosPequeninos.webm"}
             loop
-            preload="auto"
+            preload={pipOptimization.getPiPOptimizations().preload}
             playsInline
             muted={preFormMutedRef.current ?? videoMuted} /* Usar o estado guardado ao abrir o chat */
             crossOrigin="anonymous"
-            onError={(e) => {
+            onError={(e: any) => {
               console.error('Erro ao carregar vídeo PiP:', e);
               const video = e.currentTarget;
               // Tentar fallback para vídeo local
@@ -5780,6 +5786,9 @@ export default function Home({ guideVideos, guideSlug }: { guideVideos: { backgr
           </div>
         </div>
       )}
+
+      {/* Componente de status das otimizações (apenas em desenvolvimento) */}
+      <VideoOptimizationStatus show={process.env.NODE_ENV === 'development'} />
     </>
   );
 }
