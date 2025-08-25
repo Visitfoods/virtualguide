@@ -1206,20 +1206,22 @@ export default function Home({ guideVideos, guideSlug }: { guideVideos: { backgr
   useEffect(() => {
     if (videoRef.current) {
       if (showGuidePopup || showPromoPopup) {
-        // Pausar vídeo quando popups abrem
-        if (!videoRef.current.paused) {
+        // SEMPRE pausar vídeo quando popups abrem
+        try {
           videoRef.current.pause();
           setVideoPlaying(false);
-        }
-      } else {
-        // Retomar vídeo quando popups fecham (apenas se não estiver em modo desktop)
-        if (videoRef.current.paused && !isDesktop) {
-          videoRef.current.play();
-          setVideoPlaying(true);
+          console.log('⏸️ Vídeo pausado ao abrir popup:', {
+            paused: videoRef.current.paused,
+            muted: videoRef.current.muted,
+            volume: videoRef.current.volume
+          });
+        } catch (error) {
+          console.error('Erro ao pausar vídeo:', error);
         }
       }
+      // NÃO retomar automaticamente o vídeo quando o popup fecha
     }
-  }, [showGuidePopup, showPromoPopup, isDesktop]);
+  }, [showGuidePopup, showPromoPopup]);
   
   // Detectar dispositivos iOS e aplicar correções específicas
   useEffect(() => {
@@ -1687,27 +1689,45 @@ export default function Home({ guideVideos, guideSlug }: { guideVideos: { backgr
     };
   }, [hasActiveSession, showHumanChat, showChatbotPopup, showGuidePopup, isCreatingNewConversation]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Controlar vídeo PiP quando chats abrem em mobile
+  // Controlar vídeo PiP e principal em mobile
   useEffect(() => {
-
+    // Em smartphone, quando o formulário está aberto, TODOS os vídeos devem estar pausados
+    if (!isDesktop && showGuidePopup) {
+      console.log('📱 Formulário aberto em smartphone - pausando todos os vídeos');
+      
+      // 1. Desativar PiP
+      setPipVisible(false);
+      setPipVideoPlaying(false);
+      
+      // 2. Pausar vídeo principal e salvar tempo
+      if (videoRef.current) {
+        try {
+          setSavedVideoTime(videoRef.current.currentTime);
+          videoRef.current.pause();
+          setVideoPlaying(false);
+        } catch (error) {
+          console.error('Erro ao pausar vídeo principal:', error);
+        }
+      }
+      
+      // 3. Garantir que PiP está pausado
+      if (pipVideoRef.current) {
+        try {
+          pipVideoRef.current.pause();
+        } catch (error) {
+          console.error('Erro ao pausar PiP:', error);
+        }
+      }
+      
+      return; // Sair do useEffect aqui quando formulário está aberto
+    }
+    
     // Visibilidade do PiP: só mostrar em mobile quando um chat está aberto
     const shouldShowPip = !isDesktop && (showChatbotPopup || showHumanChat) && !showGuidePopup && !pipManuallyClosed;
     const shouldHidePip = !shouldShowPip;
     
-    // 1. Formulário guia: pausar vídeo principal (sem PiP)
-    if (!isDesktop && showGuidePopup) {
-      setPipVisible(false);
-      if (videoRef.current) {
-        try {
-          const currentTime = videoRef.current.currentTime;
-          setSavedVideoTime(currentTime);
-          videoRef.current.pause();
-          setVideoPlaying(false);
-        } catch {}
-      }
-    }
     // 2. Chats abertos: mostrar PiP e PAUSAR o principal (garantir um de cada vez)
-    else if (shouldShowPip) {
+    if (shouldShowPip) {
       // Pausar o vídeo principal para não coexistirem dois vídeos em reprodução
       if (videoRef.current && !videoRef.current.paused) {
         try { videoRef.current.pause(); } catch {}
@@ -1845,54 +1865,66 @@ export default function Home({ guideVideos, guideSlug }: { guideVideos: { backgr
     }
   }, [showChatbotPopup, showHumanChat, showGuidePopup, isDesktop, shouldSaveTime, savedVideoTime]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Garantir em smartphone: quando o formulário de contacto abre, o vídeo principal é pausado e silenciado
+  // Garantir em smartphone: quando o formulário de contacto abre, o vídeo principal é APENAS pausado
   useEffect(() => {
     if (isDesktop) return;
     
     if (showGuidePopup) {
       (async () => {
       try {
-        // Sempre guardar o estado atual do som quando o formulário abre
-        const currentMuted = videoRef.current ? videoRef.current.muted : videoMuted;
-        preFormMutedRef.current = currentMuted;
-        console.log('🔊 Estado de som guardado antes do formulário:', currentMuted);
+        // 1. Guardar o estado atual do som do vídeo principal (mas NÃO modificar)
+        const currentVideoMuted = videoRef.current ? videoRef.current.muted : videoMuted;
+        const currentVideoVolume = videoRef.current ? videoRef.current.volume : (videoMuted ? 0 : 1);
         
-        // Pausar e silenciar todos os vídeos possíveis em mobile de forma segura
-        const safelyPauseAndMute = async (v: HTMLVideoElement | null) => {
-          if (!v) return;
+        console.log('🔊 Estado atual do vídeo antes do formulário:', {
+          muted: currentVideoMuted,
+          volume: currentVideoVolume
+        });
+        
+        // 2. APENAS pausar o vídeo principal (sem afetar o som)
+        if (videoRef.current) {
           try {
-            // Primeiro mutar o vídeo para evitar problemas de autoplay
-            v.volume = 0;
-            v.muted = true;
+            // Guardar tempo atual
+            const currentTime = videoRef.current.currentTime;
+            setSavedVideoTime(currentTime);
             
-            // Esperar um momento antes de pausar para evitar AbortError
-            await new Promise(resolve => setTimeout(resolve, 50));
+            // APENAS pausar, sem modificar o som
+            await videoRef.current.pause();
+            setVideoPlaying(false);
             
-            // Só pausar se ainda estiver a tocar
-            if (!v.paused) {
-              try {
-                await v.pause();
-              } catch {}
-            }
-            
-            console.log('🔊 Vídeo pausado e mutado com sucesso:', {
-              paused: v.paused,
-              muted: v.muted,
-              volume: v.volume
+            console.log('⏸️ Vídeo principal pausado (som mantido):', {
+              paused: videoRef.current.paused,
+              muted: videoRef.current.muted,
+              volume: videoRef.current.volume
             });
           } catch (error) {
-            console.error('Erro ao pausar e mutar vídeo:', error);
+            console.error('Erro ao pausar vídeo principal:', error);
           }
-        };
+        }
         
-        // Executar as operações em sequência para evitar conflitos
-        await safelyPauseAndMute(videoRef.current);
-        await safelyPauseAndMute(pipVideoRef.current);
-        await safelyPauseAndMute(bgVideoRef.current);
-        await safelyPauseAndMute(welcomeBgVideoRef.current);
+        // 3. Configurar o PiP com o mesmo estado de som do vídeo principal
+        if (pipVideoRef.current) {
+          try {
+            // Usar o estado ATUAL do vídeo principal
+            pipVideoRef.current.volume = currentVideoVolume;
+            pipVideoRef.current.muted = currentVideoMuted;
+            
+            console.log('🔊 PiP configurado com estado atual do vídeo:', {
+              muted: currentVideoMuted,
+              volume: currentVideoVolume
+            });
+          } catch (error) {
+            console.error('Erro ao configurar som do PiP:', error);
+          }
+        }
         
-        setVideoPlaying(false);
-        setVideoMuted(true);
+        // 4. Pausar vídeos de background (sem afetar som)
+        if (bgVideoRef.current) {
+          try { await bgVideoRef.current.pause(); } catch {}
+        }
+        if (welcomeBgVideoRef.current) {
+          try { await welcomeBgVideoRef.current.pause(); } catch {}
+        }
       } catch (error) {
         console.error('Erro ao controlar som do formulário:', error);
       }
@@ -1901,70 +1933,75 @@ export default function Home({ guideVideos, guideSlug }: { guideVideos: { backgr
     // Não limpar preFormMutedRef.current aqui - será limpo após restauração
   }, [showGuidePopup, isDesktop, videoMuted]);
 
-  // Restaurar automaticamente o estado de som quando o formulário fecha SEM submissão
+  // Restaurar estado quando o formulário fecha (sem modificar o som)
   useEffect(() => {
     if (isDesktop) return;
-    if (!showGuidePopup && preFormMutedRef.current !== null) {
+    if (!showGuidePopup) {
       try {
-        const targetMuted = preFormMutedRef.current ?? false;
-        preFormMutedRef.current = null;
+        // NÃO modificar o estado de som - manter como está
         if (videoRef.current) {
-          videoRef.current.muted = targetMuted;
-          videoRef.current.volume = targetMuted ? 0 : 1;
+          console.log('🔊 Estado do vídeo mantido após fechar formulário:', {
+            muted: videoRef.current.muted,
+            volume: videoRef.current.volume
+          });
         }
+        
+        // O PiP já está com o estado correto - não modificar
         if (pipVideoRef.current) {
-          pipVideoRef.current.muted = targetMuted;
-          pipVideoRef.current.volume = targetMuted ? 0 : 1;
+          console.log('🔊 Estado do PiP mantido após fechar formulário:', {
+            muted: pipVideoRef.current.muted,
+            volume: pipVideoRef.current.volume
+          });
         }
-        setVideoMuted(targetMuted);
-        setVideoPlaying(!targetMuted);
+        
+        // NÃO modificar estados de som do React
+        // NÃO iniciar reprodução automaticamente
       } catch {}
     }
   }, [showGuidePopup, isDesktop]);
 
-  // Garantir que o vídeo mantenha o seu estado de mute quando o chat humano abre
+  // Garantir que o vídeo mantenha o seu estado de mute quando qualquer chat abre (AI ou guia real)
   useEffect(() => {
     if (isDesktop) return;
-    if (showHumanChat) {
+    if (showHumanChat || showChatbotPopup) {
       try {
-        // Usar o estado guardado ou atual
-        const targetMuted = preFormMutedRef.current ?? videoMuted;
-        console.log('🔊 Chat humano aberto - estado de som:', {
+        // IMPORTANTE: Para o chat real, usar o estado atual do vídeo principal
+        // Para o chat AI, usar o estado global
+        const targetMuted = showHumanChat ? 
+          (videoRef.current ? videoRef.current.muted : videoMuted) : 
+          videoMuted;
+        
+        const chatType = showHumanChat ? 'humano' : 'AI';
+        console.log(`🔊 Chat ${chatType} aberto - estado de som:`, {
           targetMuted,
-          preFormMuted: preFormMutedRef.current,
-          videoMuted
+          videoMuted,
+          currentVideoMuted: videoRef.current?.muted,
+          isHumanChat: showHumanChat
         });
         
-        // Quando o chat humano abre, garantir que o vídeo mantenha o seu estado de mute atual
-        // NÃO forçar mute se o utilizador não o colocou em mute antes
-        if (videoRef.current) {
-          // Aplicar o estado de mute atual (não forçar mute)
-          videoRef.current.muted = targetMuted;
-          videoRef.current.volume = targetMuted ? 0 : 1;
-          
-          // Em mobile, quando o chat humano abre, manter o vídeo principal pausado
-          // para evitar conflito com o PiP (que é o vídeo visível durante o chat)
-          if (!videoRef.current.paused) {
-            try { videoRef.current.pause(); } catch {}
-          }
-          setVideoPlaying(false);
-        }
-        
+        // Configurar o PiP primeiro
         if (pipVideoRef.current) {
           // O PiP sempre segue o estado do vídeo principal
           // Importante: Primeiro garantir que o volume está configurado corretamente
           pipVideoRef.current.volume = targetMuted ? 0 : 1;
           // Depois configurar o mute
           pipVideoRef.current.muted = targetMuted;
-          console.log('🔊 PiP - estado sincronizado:', {
-            muted: pipVideoRef.current.muted,
-            volume: pipVideoRef.current.volume
-          });
           
           // Se o PiP estiver visível e o som estiver ativado, tentar tocar
           if (pipVisible && !targetMuted) {
             safePlay(pipVideoRef.current);
           }
+        }
+        
+        // Depois configurar o vídeo principal
+        if (videoRef.current) {
+          videoRef.current.volume = targetMuted ? 0 : 1;
+          videoRef.current.muted = targetMuted;
+          
+          if (!videoRef.current.paused) {
+            try { videoRef.current.pause(); } catch {}
+          }
+          setVideoPlaying(false);
         }
         
         // Atualizar estados do React
@@ -1975,7 +2012,7 @@ export default function Home({ guideVideos, guideSlug }: { guideVideos: { backgr
         console.error('Erro ao controlar som do chat:', error);
       }
     }
-  }, [showHumanChat, isDesktop, videoMuted, pipVisible]);
+  }, [showHumanChat, showChatbotPopup, isDesktop, videoMuted, pipVisible]);
 
   // Sincronizar estado do vídeo PiP com eventos de play/pause
   useEffect(() => {
@@ -2799,6 +2836,27 @@ export default function Home({ guideVideos, guideSlug }: { guideVideos: { backgr
   async function handleGuideClick(e: React.MouseEvent) {
     e.preventDefault();
     
+    // IMPORTANTE: Primeiro pausar o vídeo principal, depois fazer o resto
+    if (videoRef.current) {
+      try {
+        // Guardar o tempo atual
+        const currentTime = videoRef.current.currentTime;
+        setSavedVideoTime(currentTime);
+        
+        // APENAS pausar, sem modificar o som
+        await videoRef.current.pause();
+        setVideoPlaying(false);
+        
+        console.log('⏸️ Vídeo principal pausado antes de abrir formulário:', {
+          paused: videoRef.current.paused,
+          muted: videoRef.current.muted,
+          volume: videoRef.current.volume
+        });
+      } catch (error) {
+        console.error('Erro ao pausar vídeo principal:', error);
+      }
+    }
+    
     // Impedir scroll quando o chat do guia real estiver aberto
     document.body.style.overflow = 'hidden';
     
@@ -3032,21 +3090,33 @@ export default function Home({ guideVideos, guideSlug }: { guideVideos: { backgr
       
       console.log('📝 Primeira entrada ou dados limpos - entrada número:', newCount, 'de 4');
       
-      setShowGuidePopup(true);
-      
-      // Parar vídeo e mostrar imagem de fundo quando o formulário for aberto
+      // IMPORTANTE: Primeiro pausar o vídeo, depois mostrar o formulário
       if (videoRef.current) {
-        if (isDesktop) {
-          // Desktop: Parar vídeo e mostrar imagem de fundo
-          videoRef.current.pause();
+        try {
+          // Guardar o tempo atual
+          const currentTime = videoRef.current.currentTime;
+          setSavedVideoTime(currentTime);
+          
+          // APENAS pausar, sem modificar o som
+          await videoRef.current.pause();
           setVideoPlaying(false);
-        } else {
-          // Mobile: Continuar vídeo automaticamente com som
-          videoRef.current.muted = videoMuted; // Respeitar preferência salva
-          setVideoMuted(videoMuted);
-          videoRef.current.play();
-          setVideoPlaying(true);
+          
+          console.log('⏸️ Vídeo principal pausado na primeira abertura:', {
+            paused: videoRef.current.paused,
+            muted: videoRef.current.muted,
+            volume: videoRef.current.volume
+          });
+          
+          // Agora sim, mostrar o formulário
+          setShowGuidePopup(true);
+        } catch (error) {
+          console.error('Erro ao pausar vídeo principal:', error);
+          // Mesmo com erro, mostrar o formulário
+          setShowGuidePopup(true);
         }
+      } else {
+        // Se não houver vídeo, apenas mostrar o formulário
+        setShowGuidePopup(true);
       }
     }
   }
@@ -3676,9 +3746,8 @@ export default function Home({ guideVideos, guideSlug }: { guideVideos: { backgr
                 
                 // Se o PiP estiver visível e o som estiver ativado, garantir que está a tocar
                 if (pipVisible && !targetMuted) {
-                  pipVideoRef.current.play()
-                    .then(() => console.log('🔊 PiP iniciado com sucesso'))
-                    .catch(error => console.error('Erro ao iniciar PiP:', error));
+                  safePlay(pipVideoRef.current)
+                    .then(() => console.log('🔊 PiP iniciado com sucesso'));
                 }
               }
               
@@ -4697,16 +4766,8 @@ export default function Home({ guideVideos, guideSlug }: { guideVideos: { backgr
                       if (pipVideoRef.current.readyState < 2) {
                         try { pipVideoRef.current.load(); } catch {}
                       }
-                      pipVideoRef.current.play()
-                        .then(() => setPipVideoPlaying(true))
-                        .catch(err => {
-                          console.error('Erro no PiP:', err);
-                          // fallback silencioso
-                          try {
-                            pipVideoRef.current!.muted = true;
-                            pipVideoRef.current!.play().then(() => setPipVideoPlaying(true));
-                          } catch {}
-                        });
+                      safePlay(pipVideoRef.current)
+                        .then(() => setPipVideoPlaying(true));
                     } catch (err) {
                       console.error('Erro ao preparar PiP:', err);
                     }
@@ -4760,7 +4821,7 @@ export default function Home({ guideVideos, guideSlug }: { guideVideos: { backgr
                       pipVideoRef.current.muted = videoMuted;
                       
                       // PLAY SÍNCRONO - crucial para Android
-                      const playPromise = pipVideoRef.current.play();
+                      const playPromise = safePlay(pipVideoRef.current);
                       
                       // Após iniciar com sucesso
                       playPromise.then(() => {
@@ -4775,7 +4836,7 @@ export default function Home({ guideVideos, guideSlug }: { guideVideos: { backgr
                         // Tentar novamente com mute (política de autoplay)
                         try {
                           pipVideoRef.current!.muted = true;
-                          pipVideoRef.current!.play().then(() => {
+                          safePlay(pipVideoRef.current!).then(() => {
                             setPipVideoPlaying(true);
                             // Restaurar som após iniciar, se necessário
                             if (!videoMuted) {
@@ -4823,7 +4884,7 @@ export default function Home({ guideVideos, guideSlug }: { guideVideos: { backgr
                   pipVideoRef.current.muted = videoMuted;
                   
                   // PLAY SÍNCRONO - crucial para Android
-                  const playPromise = pipVideoRef.current.play();
+                  const playPromise = safePlay(pipVideoRef.current);
                   
                   // Após iniciar com sucesso
                   playPromise.then(() => {
@@ -4838,7 +4899,7 @@ export default function Home({ guideVideos, guideSlug }: { guideVideos: { backgr
                     // Tentar novamente com mute (política de autoplay)
                     try {
                       pipVideoRef.current!.muted = true;
-                      pipVideoRef.current!.play().then(() => {
+                      safePlay(pipVideoRef.current!).then(() => {
                         setPipVideoPlaying(true);
                         // Restaurar som após iniciar, se necessário
                         if (!videoMuted) {
