@@ -18,7 +18,8 @@ import {
   listGuidesWithHumanChatEnabled,
   sendGuideMessage,
   createGuideConversation,
-  listenToGuideConversations
+  listenToGuideConversations,
+  deleteGuideConversation
 } from '../../../firebase/guideServices';
 import { GuideConversation, GuideChatMessage } from '../../../firebase/guideServices';
 import styles from '../backoffice.module.css';
@@ -238,6 +239,26 @@ export default function ConversationsPage() {
       await loadConversations();
     } catch (error) {
       console.error('Erro ao reabrir conversa:', error);
+    }
+  };
+
+  const handleDeleteConversation = async (conversationId: string) => {
+    try {
+      if (role !== 'admin') {
+        alert('Apenas administradores podem apagar conversas.');
+        return;
+      }
+      const ok = window.confirm('Tem a certeza que deseja apagar esta conversa? Esta ação é irreversível.');
+      if (!ok) return;
+      await deleteGuideConversation('virtualguide-teste', conversationId);
+      await loadConversations();
+      if (selectedConversation?.id === conversationId) {
+        setSelectedConversation(null);
+      }
+      alert('Conversa apagada com sucesso.');
+    } catch (error) {
+      console.error('Erro ao apagar conversa:', error);
+      alert('Erro ao apagar conversa. Tente novamente.');
     }
   };
 
@@ -734,6 +755,15 @@ export default function ConversationsPage() {
                       onClick={() => handleCloseConversation(selectedConversation.id!)}
                     >
                       Encerrar conversa
+                    </button>
+                  )}
+                  {role === 'admin' && (
+                    <button
+                      className={styles.actionButton}
+                      style={{ background: '#d9534f' }}
+                      onClick={() => handleDeleteConversation(selectedConversation.id!)}
+                    >
+                      Apagar conversa
                     </button>
                   )}
                 </div>
