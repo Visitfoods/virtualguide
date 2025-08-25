@@ -4476,12 +4476,13 @@ export default function Home({ guideVideos, guideSlug }: { guideVideos: { backgr
     }
   };
 
-  // Restaurar conteúdo (FAQs, contactos) quando nenhum popup/chat está aberto
+  // Restaurar conteúdo (FAQs, contactos) apenas DEPOIS do utilizador iniciar
+  // Antes de clicar em "Iniciar conversa", manter escondido (mostrar só bandeiras e vídeo)
   useEffect(() => {
     if (!showGuidePopup && !showChatbotPopup && !showHumanChat) {
-      setShowActionButtons(true);
+      setShowActionButtons(!showStartButton);
     }
-  }, [showGuidePopup, showChatbotPopup, showHumanChat]);
+  }, [showGuidePopup, showChatbotPopup, showHumanChat, showStartButton]);
 
   return (
     <>
