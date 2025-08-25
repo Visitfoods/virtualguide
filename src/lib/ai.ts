@@ -3,8 +3,10 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import type { RequestInit } from "next/dist/server/web/spec-extension/request";
 
-// Lê OPENAI_API_KEY da env automaticamente
-export const openai = new OpenAI({});
+// Instanciar OpenAI apenas se existir OPENAI_API_KEY (em Vercel podes usar só OPENROUTER)
+export const openai: OpenAI | null = process.env.OPENAI_API_KEY
+  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+  : null;
 
 // --------- Heurística de routing de modelo ---------
 export type ModelTier = "gpt-5-mini" | "gpt-5-nano";
@@ -327,6 +329,9 @@ export async function askWithTools(
   allowed: readonly string[],
   opts: Omit<AskOpts, "needTools"> = {}
 ) {
+  if (!openai) {
+    throw new Error("OpenAI client indisponível (OPENAI_API_KEY ausente). Usa ask() via OpenRouter.");
+  }
   const system = opts.system ?? SYSTEM_CORE;
   const resp = await openai.responses.create({
     model: resolveOpenAIModel("gpt-5-mini"),
