@@ -1732,8 +1732,10 @@ export default function Home({ guideVideos, guideSlug }: { guideVideos: { backgr
           if (pip.paused) {
             // Usar o estado de mute anterior
             const targetMuted = preFormMutedRef.current ?? videoMuted;
-            pip.muted = targetMuted;
+            // Primeiro configurar o volume para garantir que o áudio esteja corretamente configurado
             pip.volume = targetMuted ? 0 : 1;
+            // Depois configurar o mute
+            pip.muted = targetMuted;
             console.log('🔊 PiP - Restaurando estado de som:', targetMuted);
             
             // Otimista: mostrar ícone de pausa enquanto tentamos iniciar
@@ -1742,23 +1744,32 @@ export default function Home({ guideVideos, guideSlug }: { guideVideos: { backgr
               .then(() => {
                 setPipVideoPlaying(true);
                 setVideoMuted(targetMuted); // Sincronizar estado
+                // Verificar novamente se o áudio está corretamente configurado
+                if (!targetMuted) {
+                  setTimeout(() => {
+                    try {
+                      pip.volume = 1;
+                      pip.muted = false;
+                    } catch {}
+                  }, 100);
+                }
               })
               .catch(() => {
                 // fallback: tentar em mute e depois restaurar
-                pip.muted = true;
                 pip.volume = 0;
+                pip.muted = true;
                 pip.play()
                   .then(() => {
                     // Tentar restaurar o som após um pequeno delay
                     setTimeout(() => {
                       if (!targetMuted) {
                         try {
-                          pip.muted = false;
                           pip.volume = 1;
+                          pip.muted = false;
                           setVideoMuted(false);
                         } catch {}
                       }
-                    }, 100);
+                    }, 300); // Aumentado para 300ms para garantir que o navegador tenha tempo de processar
                     setPipVideoPlaying(true);
                   })
                   .catch(() => setPipVideoPlaying(false));
@@ -1941,8 +1952,10 @@ export default function Home({ guideVideos, guideSlug }: { guideVideos: { backgr
         
         if (pipVideoRef.current) {
           // O PiP sempre segue o estado do vídeo principal
-          pipVideoRef.current.muted = targetMuted;
+          // Importante: Primeiro garantir que o volume está configurado corretamente
           pipVideoRef.current.volume = targetMuted ? 0 : 1;
+          // Depois configurar o mute
+          pipVideoRef.current.muted = targetMuted;
           console.log('🔊 PiP - estado sincronizado:', {
             muted: pipVideoRef.current.muted,
             volume: pipVideoRef.current.volume
@@ -1991,6 +2004,8 @@ export default function Home({ guideVideos, guideSlug }: { guideVideos: { backgr
     try {
       // Não forçar src aqui para evitar descarregar; o src já vem do JSX.
       pip.preload = 'auto';
+      // Inicialmente mute para garantir autoplay, mas será restaurado depois
+      pip.volume = 0;
       pip.muted = true; // autoplay em mobile exige mute
       // manter tempo próximo do principal para evitar seeks longos
       const sync = () => {
@@ -2165,14 +2180,24 @@ export default function Home({ guideVideos, guideSlug }: { guideVideos: { backgr
   const handleTogglePiPMute = () => {
     // O PiP sempre segue o vídeo principal, então alternar o vídeo principal
     const newMutedState = !videoMuted;
-      setVideoMuted(newMutedState);
+    setVideoMuted(newMutedState);
       
     // Aplicar imediatamente aos vídeos
     if (videoRef.current) {
+      videoRef.current.volume = newMutedState ? 0 : 1;
       videoRef.current.muted = newMutedState;
     }
     if (pipVideoRef.current) {
+      // Primeiro configurar o volume para garantir que o áudio esteja corretamente configurado
+      pipVideoRef.current.volume = newMutedState ? 0 : 1;
+      // Depois configurar o mute
       pipVideoRef.current.muted = newMutedState;
+      
+      // Log para debug
+      console.log('🔊 PiP mute alterado:', {
+        muted: pipVideoRef.current.muted,
+        volume: pipVideoRef.current.volume
+      });
     }
     
     // Não salvar preferência - resetar sempre no refresh
@@ -2428,7 +2453,17 @@ export default function Home({ guideVideos, guideSlug }: { guideVideos: { backgr
   // Sincronizar PiP com o vídeo principal
   useEffect(() => {
     if (pipVideoRef.current) {
+      // Primeiro configurar o volume para garantir que o áudio esteja corretamente configurado
+      pipVideoRef.current.volume = videoMuted ? 0 : 1;
+      // Depois configurar o mute
       pipVideoRef.current.muted = videoMuted;
+      
+      // Verificar se o PiP está realmente com o áudio configurado corretamente
+      console.log('🔊 PiP sincronizado com vídeo principal:', {
+        muted: pipVideoRef.current.muted,
+        volume: pipVideoRef.current.volume,
+        videoMuted
+      });
     }
   }, [videoMuted]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -2436,9 +2471,13 @@ export default function Home({ guideVideos, guideSlug }: { guideVideos: { backgr
   useEffect(() => {
     // Garantir que os vídeos tenham o estado correto de som
     if (videoRef.current) {
+      videoRef.current.volume = videoMuted ? 0 : 1;
       videoRef.current.muted = videoMuted;
     }
     if (pipVideoRef.current) {
+      // Primeiro configurar o volume para garantir que o áudio esteja corretamente configurado
+      pipVideoRef.current.volume = videoMuted ? 0 : 1;
+      // Depois configurar o mute
       pipVideoRef.current.muted = videoMuted; // Sempre seguir o vídeo principal
     }
   }, [videoMuted]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -4715,6 +4754,9 @@ export default function Home({ guideVideos, guideSlug }: { guideVideos: { backgr
                       pipVideoRef.current.currentTime = time;
                       
                       // Preservar preferência de som original
+                      // Primeiro configurar o volume para garantir que o áudio esteja corretamente configurado
+                      pipVideoRef.current.volume = videoMuted ? 0 : 1;
+                      // Depois configurar o mute
                       pipVideoRef.current.muted = videoMuted;
                       
                       // PLAY SÍNCRONO - crucial para Android
@@ -4724,7 +4766,10 @@ export default function Home({ guideVideos, guideSlug }: { guideVideos: { backgr
                       playPromise.then(() => {
                         setPipVideoPlaying(true);
                         // Garantir que o som está conforme a preferência do usuário
-                        try { pipVideoRef.current!.muted = videoMuted; } catch {}
+                        try { 
+                          pipVideoRef.current!.volume = videoMuted ? 0 : 1;
+                          pipVideoRef.current!.muted = videoMuted; 
+                        } catch {}
                       }).catch(err => {
                         console.error('Erro no PiP:', err);
                         // Tentar novamente com mute (política de autoplay)
@@ -4772,6 +4817,9 @@ export default function Home({ guideVideos, guideSlug }: { guideVideos: { backgr
                   pipVideoRef.current.currentTime = time;
                   
                   // Preservar preferência de som original
+                  // Primeiro configurar o volume para garantir que o áudio esteja corretamente configurado
+                  pipVideoRef.current.volume = videoMuted ? 0 : 1;
+                  // Depois configurar o mute
                   pipVideoRef.current.muted = videoMuted;
                   
                   // PLAY SÍNCRONO - crucial para Android
@@ -4781,7 +4829,10 @@ export default function Home({ guideVideos, guideSlug }: { guideVideos: { backgr
                   playPromise.then(() => {
                     setPipVideoPlaying(true);
                     // Garantir que o som está conforme a preferência do usuário
-                    try { pipVideoRef.current!.muted = videoMuted; } catch {}
+                    try { 
+                      pipVideoRef.current!.volume = videoMuted ? 0 : 1;
+                      pipVideoRef.current!.muted = videoMuted; 
+                    } catch {}
                   }).catch(err => {
                     console.error('Erro no PiP:', err);
                     // Tentar novamente com mute (política de autoplay)
