@@ -1,0 +1,114 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Função auxiliar para verificar autenticação
+    function isAuthenticated() {
+      return request.auth != null && request.auth.uid != null;
+    }
+
+    // Função auxiliar para verificar se o usuário é admin
+    function isAdmin(userId) {
+      return exists(/databases/$(database)/documents/users/$(userId)) && 
+             get(/databases/$(database)/documents/users/$(userId)).data.role == 'admin';
+    }
+
+    // Função auxiliar para verificar se é o próprio usuário
+    function isUser(userId) {
+      return request.auth.uid == userId;
+    }
+
+    // Função para verificar se a sessão é válida
+    function hasValidSession(sessionId) {
+      return exists(/databases/$(database)/documents/active_sessions/$(sessionId)) &&
+             get(/databases/$(database)/documents/active_sessions/$(sessionId)).data.isActive == true &&
+             get(/databases/$(database)/documents/active_sessions/$(sessionId)).data.expiresAt > request.time;
+    }
+
+    // ========================================
+    // REGRAS PARA SESSÕES ATIVAS
+    // ========================================
+    match /active_sessions/{sessionId} {
+      // Leitura: permitir apenas para sessões do próprio usuário ou admin
+      allow read: if 
+        request.auth != null && 
+        (get(/databases/$(database)/documents/active_sessions/$(sessionId)).data.userId == request.auth.uid || 
+         isAdmin(request.auth.uid));
+      
+      // Criação: permitir apenas para usuários autenticados
+      allow create: if 
+        request.auth != null && 
+        request.resource.data.userId == request.auth.uid;
+      
+      // Atualização: permitir apenas para sessões do próprio usuário
+      allow update: if 
+        request.auth != null && 
+        resource.data.userId == request.auth.uid;
+      
+      // Eliminação: permitir para o próprio usuário ou admin
+      allow delete: if 
+        request.auth != null && 
+        (resource.data.userId == request.auth.uid || 
+         isAdmin(request.auth.uid));
+    }
+    
+    // ========================================
+    // REGRAS PARA UTILIZADORES (VERIFICAÇÃO DE CREDENCIAIS)
+    // ========================================
+    match /users/{userId} {
+      // Leitura: permitir para autenticação e para admins
+      allow read: if 
+        request.auth != null && 
+        (isUser(userId) || isAdmin(request.auth.uid));
+      
+      // Criação: apenas admins podem criar usuários
+      allow create: if 
+        request.auth != null && 
+        isAdmin(request.auth.uid);
+      
+      // Atualização: apenas o próprio usuário ou admins
+      allow update: if 
+        request.auth != null && 
+        (isUser(userId) || isAdmin(request.auth.uid));
+      
+      // Eliminação: apenas admins
+      allow delete: if 
+        request.auth != null && 
+        isAdmin(request.auth.uid);
+    }
+    
+    // ========================================
+    // REGRAS PARA GUIAS (CONFIGURAÇÃO E ROTEAMENTO)
+    // ========================================
+    match /guides/{guideId} {
+      // Leitura: pública para páginas dinâmicas
+      allow read: if true;
+      
+      // Escrita: apenas admins
+      allow write: if 
+        request.auth != null && 
+        isAdmin(request.auth.uid);
+    }
+    
+    // ========================================
+    // REGRAS PARA CONFIGURAÇÕES DO SISTEMA
+    // ========================================
+    match /settings/{settingId} {
+      // Leitura: permitir para usuários autenticados
+      allow read: if request.auth != null;
+      
+      // Escrita: apenas admins
+      allow write: if 
+        request.auth != null && 
+        isAdmin(request.auth.uid);
+    }
+    
+    // ========================================
+    // REGRAS PARA OUTRAS COLEÇÕES
+    // ========================================
+    match /{document=**} {
+      // Negar acesso por padrão
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,0 +1,7 @@
+FTP_HOST=lhwp3192.webapps.net
+FTP_USER=virtualguide@visitfoods.pt
+FTP_PASSWORD=conTaSuper78%
+FTP_PORT=21
+FTP_SECURE=TRUE
+FTP_PUBLIC_HTML_PATH=.
+FTP_BASE_URL=https://visitfoods.pt
