@@ -59,14 +59,7 @@ export const useVideoOptimization = (): VideoOptimizationConfig => {
       recommendedVolume
     });
 
-    console.log('🔧 Configuração de otimização detectada:', {
-      isMobile,
-      isLowEndDevice,
-      connectionType,
-      supportsPiP,
-      recommendedPreload,
-      recommendedVolume
-    });
+         // Configuração de otimização detectada
   }, []);
 
   useEffect(() => {
@@ -75,10 +68,9 @@ export const useVideoOptimization = (): VideoOptimizationConfig => {
     // Re-detecta quando a conexão muda
     if ('connection' in navigator) {
       const connection = (navigator as any).connection;
-      const handleConnectionChange = () => {
-        console.log('📡 Mudança de conexão detectada');
-        detectDeviceCapabilities();
-      };
+             const handleConnectionChange = () => {
+         detectDeviceCapabilities();
+       };
       
       connection.addEventListener('change', handleConnectionChange);
       return () => connection.removeEventListener('change', handleConnectionChange);
@@ -112,8 +104,7 @@ export const usePiPOptimization = () => {
       }
     }
 
-    console.log('🎬 Otimizações PiP aplicadas:', optimizations);
-    return optimizations;
+         return optimizations;
   }, [isMobile, isLowEndDevice, connectionType]);
 
   return {

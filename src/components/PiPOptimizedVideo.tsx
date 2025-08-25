@@ -30,73 +30,63 @@ const PiPOptimizedVideo = forwardRef<HTMLVideoElement, PiPOptimizedVideoProps>(
       const video = videoRef.current;
       if (!video) return;
 
-      console.log('🎬 Inicializando otimizações específicas para PiP');
+             // 1. Otimizações específicas para PiP
+       const optimizeForPiP = () => {
+         // Carregar metadados primeiro para start rápido
+         video.preload = 'metadata';
+         
+         // Configurar para melhor performance em PiP
+         video.playsInline = true;
+         
+         // Detectar se o dispositivo suporta PiP
+         if (document.pictureInPictureEnabled || 'pictureInPictureEnabled' in document) {
+           // Preparar PiP com antecedência
+           video.addEventListener('loadedmetadata', () => {
+             setIsPiPReady(true);
+             
+             // Carregar mais dados para PiP suave
+             video.preload = 'auto';
+           }, { once: true });
+         }
+       };
 
-      // 1. Otimizações específicas para PiP
-      const optimizeForPiP = () => {
-        // Carregar metadados primeiro para start rápido
-        video.preload = 'metadata';
-        
-        // Configurar para melhor performance em PiP
-        video.playsInline = true;
-        
-        // Detectar se o dispositivo suporta PiP
-        if (document.pictureInPictureEnabled || 'pictureInPictureEnabled' in document) {
-          console.log('✅ Dispositivo suporta PiP - otimizando');
-          
-          // Preparar PiP com antecedência
-          video.addEventListener('loadedmetadata', () => {
-            console.log('🎬 PiP - metadados carregados, pronto para ativação');
-            setIsPiPReady(true);
-            
-            // Carregar mais dados para PiP suave
-            video.preload = 'auto';
-          }, { once: true });
-        }
-      };
-
-      // 2. Otimizações para mobile
-      const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-      
-      if (isMobile) {
-        console.log('📱 Aplicando otimizações mobile para PiP');
-        
-        // Reduzir qualidade em dispositivos de baixo desempenho
-        const isLowEndDevice = navigator.hardwareConcurrency <= 2;
-        if (isLowEndDevice) {
-          console.log('🔧 Dispositivo de baixo desempenho - otimizando PiP');
-          // Manter configurações básicas para estabilidade
-        }
-        
-        // Otimizar para conexões móveis
-        if ('connection' in navigator) {
-          const connection = (navigator as any).connection;
-          if (connection.effectiveType === 'slow-2g' || connection.effectiveType === '2g') {
-            console.log('📡 Conexão lenta - otimizando PiP para economia de dados');
-            video.preload = 'metadata'; // Carregar só metadados primeiro
-          }
-        }
-      }
+             // 2. Otimizações para mobile
+       const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+       
+       if (isMobile) {
+         // Reduzir qualidade em dispositivos de baixo desempenho
+         const isLowEndDevice = navigator.hardwareConcurrency <= 2;
+         if (isLowEndDevice) {
+           // Manter configurações básicas para estabilidade
+         }
+         
+         // Otimizar para conexões móveis
+         if ('connection' in navigator) {
+           const connection = (navigator as any).connection;
+           if (connection.effectiveType === 'slow-2g' || connection.effectiveType === '2g') {
+             video.preload = 'metadata'; // Carregar só metadados primeiro
+           }
+         }
+       }
 
       optimizeForPiP();
 
-      // 3. Event listeners específicos para PiP
-      const handleCanPlay = () => {
-        console.log('🎬 PiP - vídeo pronto para tocar');
-      };
+             // 3. Event listeners específicos para PiP
+       const handleCanPlay = () => {
+         // PiP - vídeo pronto para tocar
+       };
 
-      const handlePlay = () => {
-        console.log('▶️ PiP - iniciando reprodução');
-      };
+       const handlePlay = () => {
+         // PiP - iniciando reprodução
+       };
 
-      const handlePause = () => {
-        console.log('⏸️ PiP - pausado');
-      };
+       const handlePause = () => {
+         // PiP - pausado
+       };
 
-      const handleError = (e: any) => {
-        console.error('❌ Erro no PiP:', e);
-        props.onError?.(e);
-      };
+       const handleError = (e: any) => {
+         props.onError?.(e);
+       };
 
       video.addEventListener('canplay', handleCanPlay);
       video.addEventListener('play', handlePlay);

@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect, FormEvent, useCallback } from "reac
 import MobileOptimizedVideo from "../../../components/MobileOptimizedVideo";
 import PiPOptimizedVideo from "../../../components/PiPOptimizedVideo";
 import { useVideoOptimization, usePiPOptimization } from "../../../hooks/useVideoOptimization";
-import VideoOptimizationStatus from "../../../components/VideoOptimizationStatus";
+
 import Image from "next/image";
 import { saveContactRequest, createConversation, sendMessage, listenToConversation, closeConversation, type Conversation, type ChatMessage, getConversation } from "../../../firebase/services";
 
@@ -5787,8 +5787,7 @@ export default function Home({ guideVideos, guideSlug }: { guideVideos: { backgr
         </div>
       )}
 
-      {/* Componente de status das otimizações (apenas em desenvolvimento) */}
-      <VideoOptimizationStatus show={process.env.NODE_ENV === 'development'} />
+
     </>
   );
 }

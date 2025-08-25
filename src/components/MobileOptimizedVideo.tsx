@@ -33,61 +33,51 @@ const MobileOptimizedVideo = forwardRef<HTMLVideoElement, MobileOptimizedVideoPr
       // Detectar se é mobile
       const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
       
-      if (isMobile) {
-        console.log('🔧 Aplicando otimizações mobile para vídeo');
+             if (isMobile) {
+         // 1. Otimizar carregamento - metadados primeiro
+         video.preload = 'metadata';
+         
+         // 2. Detectar qualidade da conexão
+         if ('connection' in navigator) {
+           const connection = (navigator as any).connection;
+           
+           if (connection.effectiveType === 'slow-2g' || connection.effectiveType === '2g') {
+             video.volume = 0.7; // Reduz volume para economizar
+           }
+         }
+         
+         // 3. Detectar performance do dispositivo
+         const isLowEndDevice = navigator.hardwareConcurrency <= 2;
+         if (isLowEndDevice) {
+           video.playbackRate = 1.0; // Manter velocidade normal
+         }
         
-        // 1. Otimizar carregamento - metadados primeiro
-        video.preload = 'metadata';
-        
-        // 2. Detectar qualidade da conexão
-        if ('connection' in navigator) {
-          const connection = (navigator as any).connection;
-          console.log('📡 Qualidade da conexão:', connection.effectiveType);
-          
-          if (connection.effectiveType === 'slow-2g' || connection.effectiveType === '2g') {
-            video.volume = 0.7; // Reduz volume para economizar
-            console.log('🔧 Conexão lenta detectada - otimizando volume');
-          }
-        }
-        
-        // 3. Detectar performance do dispositivo
-        const isLowEndDevice = navigator.hardwareConcurrency <= 2;
-        if (isLowEndDevice) {
-          console.log('🔧 Dispositivo de baixo desempenho detectado - otimizando');
-          video.playbackRate = 1.0; // Manter velocidade normal
-        }
-        
-        // 4. Event listeners otimizados
-        const handleLoadedMetadata = () => {
-          console.log('✅ Metadados carregados - vídeo pronto para PiP');
-          setIsLoaded(true);
-          video.preload = 'auto'; // Agora carregar tudo
-          onLoadedMetadata?.();
-        };
+                 // 4. Event listeners otimizados
+         const handleLoadedMetadata = () => {
+           setIsLoaded(true);
+           video.preload = 'auto'; // Agora carregar tudo
+           onLoadedMetadata?.();
+         };
 
-        const handleCanPlay = () => {
-          console.log('🎬 Vídeo otimizado e pronto para tocar');
-        };
+         const handleCanPlay = () => {
+           // Vídeo otimizado e pronto para tocar
+         };
 
-        const handleCanPlayThrough = () => {
-          console.log('🎬 Vídeo otimizado - canplaythrough');
-          onCanPlayThrough?.();
-        };
+         const handleCanPlayThrough = () => {
+           onCanPlayThrough?.();
+         };
 
-        const handlePlay = () => {
-          console.log('▶️ Vídeo otimizado - play');
-          onPlay?.();
-        };
+         const handlePlay = () => {
+           onPlay?.();
+         };
 
-        const handlePause = () => {
-          console.log('⏸️ Vídeo otimizado - pause');
-          onPause?.();
-        };
+         const handlePause = () => {
+           onPause?.();
+         };
 
-        const handleError = (e: any) => {
-          console.error('❌ Erro no vídeo otimizado:', e);
-          onError?.(e);
-        };
+         const handleError = (e: any) => {
+           onError?.(e);
+         };
 
         video.addEventListener('loadedmetadata', handleLoadedMetadata);
         video.addEventListener('canplay', handleCanPlay);
@@ -104,11 +94,10 @@ const MobileOptimizedVideo = forwardRef<HTMLVideoElement, MobileOptimizedVideoPr
           video.removeEventListener('pause', handlePause);
           video.removeEventListener('error', handleError);
         };
-      } else {
-        // Desktop - otimizações básicas
-        console.log('🖥️ Aplicando otimizações desktop para vídeo');
-        video.preload = preload;
-      }
+             } else {
+         // Desktop - otimizações básicas
+         video.preload = preload;
+       }
     }, [onError, onLoadedMetadata, preload]);
 
     // Combinar refs
