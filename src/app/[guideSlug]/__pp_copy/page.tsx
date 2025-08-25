@@ -60,23 +60,19 @@ const conversation: ConversationMessage[] = [];
 // Função para obter sumário da conversa (opcional)
 async function getSummary(conversation: ConversationMessage[]): Promise<string> {
   try {
-    const response = await fetch('/api/chat', {
+    const response = await fetch('/api/ask', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        messages: [
-          {
-            role: "system",
-            content: "Faz um resumo conciso da conversa em português de Portugal. Máximo 128 tokens."
-          },
-          ...conversation
-        ],
-        model: "meta-llama/llama-3.1-8b-instruct",
-        max_tokens: 128,
-        temperature: 0.3,
-        top_p: 0.9
+        q: "Faz um resumo conciso da conversa em português de Portugal. Máximo 128 tokens.",
+        opts: {
+          history: conversation,
+          // deixar o backend decidir tokens
+          temperature: 0.3,
+          verbosity: "low"
+        }
       })
     });
 
@@ -85,8 +81,8 @@ async function getSummary(conversation: ConversationMessage[]): Promise<string> 
     }
 
     const data = await response.json();
-    if (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) {
-      return data.choices[0].message.content;
+    if (data.text) {
+      return data.text;
     }
     
     return "Resumo da conversa anterior";
@@ -2729,31 +2725,22 @@ export default function Home({ guideVideos, guideSlug }: { guideVideos: { backgr
       // Guardar intenção do utilizador para fallback do botão
       const userAskedHuman = isGuiaRealRequest;
       
-      const response = await fetch('/api/chat', {
+      const response = await fetch('/api/ask', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          messages: [
-            // Prompt base do guia
-            ...(guideVideos?.systemPrompt ? [{ role: 'system', content: guideVideos.systemPrompt }] as ConversationMessage[] : []),
-            // Instruções para integração com chat humano
-            { role: 'system', content: (
-              `Contexto do Guia:\n` +
-              `- chat_humano_disponivel: ${guideVideos?.humanChatEnabled ? 'SIM' : 'NAO'}.\n\n` +
-              `Instruções ao assistente:\n` +
-              `- Se o utilizador pedir para falar com humano/guia real/atendente e chat_humano_disponivel=SIM, coloca NA PRIMEIRA LINHA apenas [[OPEN_HUMAN_CHAT]].\n` +
-              `- Após essa linha, escreve uma frase muito curta a informar que o vais encaminhar para um humano.\n` +
-              `- Se chat_humano_disponivel=NAO, nunca coloques [[OPEN_HUMAN_CHAT]] e explica educadamente que o chat humano não está disponível, continuando a ajudar como IA.\n` +
-              `- Responde sempre em português de Portugal.`
-            ) },
-            ...conversation
-          ],
-          model: "meta-llama/llama-3.1-8b-instruct",
-          max_tokens: 512,
-          temperature: 0.7,
-          top_p: 0.9
+          q: message,
+          opts: {
+            history: conversation,
+            // deixar o max_output_tokens ser decidido no backend (decideMaxTokens)
+            temperature: 0.5,
+            verbosity: "medium",
+            system: guideVideos?.systemPrompt ? 
+              `${guideVideos.systemPrompt}\n\nContexto do Guia:\n- chat_humano_disponivel: ${guideVideos?.humanChatEnabled ? 'SIM' : 'NAO'}.\n\nInstruções ao assistente:\n- Se o utilizador pedir para falar com humano/guia real/atendente e chat_humano_disponivel=SIM, coloca NA PRIMEIRA LINHA apenas [[OPEN_HUMAN_CHAT]].\n- Após essa linha, escreve uma frase muito curta a informar que o vais encaminhar para um humano.\n- Se chat_humano_disponivel=NAO, nunca coloques [[OPEN_HUMAN_CHAT]] e explica educadamente que o chat humano não está disponível, continuando a ajudar como IA.\n- Responde sempre em português de Portugal.` :
+              `Contexto do Guia:\n- chat_humano_disponivel: ${guideVideos?.humanChatEnabled ? 'SIM' : 'NAO'}.\n\nInstruções ao assistente:\n- Se o utilizador pedir para falar com humano/guia real/atendente e chat_humano_disponivel=SIM, coloca NA PRIMEIRA LINHA apenas [[OPEN_HUMAN_CHAT]].\n- Após essa linha, escreve uma frase muito curta a informar que o vais encaminhar para um humano.\n- Se chat_humano_disponivel=NAO, nunca coloques [[OPEN_HUMAN_CHAT]] e explica educadamente que o chat humano não está disponível, continuando a ajudar como IA.\n- Responde sempre em português de Portugal.`
+          }
         })
       });
 
@@ -2766,15 +2753,8 @@ export default function Home({ guideVideos, guideSlug }: { guideVideos: { backgr
       const data = await response.json();
       
       // Verificar o formato da resposta
-      if (data.choices && data.choices[0]) {
-        let responseText = "";
-        if (data.choices[0].message && data.choices[0].message.content) {
-          responseText = data.choices[0].message.content;
-        } else if (data.choices[0].text) {
-          responseText = data.choices[0].text;
-        } else {
-          return generateLocalResponse();
-        }
+      if (data.text) {
+        let responseText = data.text;
         
         // Limpar marcações indesejadas e converter markdown para HTML formatado
         responseText = responseText
@@ -2811,14 +2791,16 @@ export default function Home({ guideVideos, guideSlug }: { guideVideos: { backgr
         // Verificar se a resposta parece estar em inglês
         const englishIndicators = ['the', 'and', 'for', 'with', 'this', 'that', 'what', 'where', 'when', 'how', 'which', 'who'];
         const words = responseText.toLowerCase().split(/\s+/);
-        const englishWordCount = words.filter(word => englishIndicators.includes(word)).length;
+        const englishWordCount = words.filter((word: string) => englishIndicators.includes(word)).length;
         
-        // Se parecer inglês, usar resposta local
+        // Se parecer inglês ou resposta muito curta, usar resposta local
         if (englishWordCount > 2 || responseText.length < 10) {
           return generateLocalResponse();
         }
         
-        return responseText || generateLocalResponse();
+        return responseText;
+      } else {
+        return generateLocalResponse();
       }
       
       // Se não conseguir extrair a resposta, usar o fallback

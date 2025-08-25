@@ -1,8 +1,10 @@
+import OpenAI from "openai";
 import fs from "node:fs/promises";
 import path from "node:path";
 import type { RequestInit } from "next/dist/server/web/spec-extension/request";
 
-// Todas as chamadas usam OpenRouter diretamente via fetch
+// Lê OPENAI_API_KEY da env automaticamente
+export const openai = new OpenAI({});
 
 // --------- Heurística de routing de modelo ---------
 export type ModelTier = "gpt-5-mini" | "gpt-5-nano";
@@ -25,10 +27,27 @@ export function pickModel(
 
 function decideMaxTokens(input: string): number {
   const len = input.length;
-  if (len >= 1000) return 1024;
-  if (len >= 400) return 768;
-  if (len >= 160) return 512;
-  return 256;
+  // Heurística dinâmica por tipo de pergunta
+  const isSimpleQuestion = /^(quem|o que|onde|quando|como|qual|quais|quanto|por que|porque)/i.test(input);
+  const isComplexQuestion = /explique|descreva|detalhe|história|percurso|roteiro|itinerário|visita/i.test(input);
+  const isListRequest = /lista|enumere|cite|mencione|quais são/i.test(input);
+
+  // Aumentar limites para evitar respostas cortadas
+  if (isSimpleQuestion) {
+    return Math.max(384, Math.min(640, Math.floor(len * 3)));
+  }
+  if (isComplexQuestion) {
+    return Math.max(1024, Math.min(1536, Math.floor(len * 4)));
+  }
+  if (isListRequest) {
+    return Math.max(640, Math.min(1024, Math.floor(len * 3)));
+  }
+
+  // Padrão por comprimento
+  if (len >= 1200) return 1536;
+  if (len >= 600) return 1024;
+  if (len >= 240) return 768;
+  return 512;
 }
 
 function buildCurrentDateSystemMessage(preferredTz?: string): string {
@@ -60,7 +79,7 @@ function buildCurrentDateSystemMessage(preferredTz?: string): string {
 function resolveOpenAIModel(tier: ModelTier): string {
   // Usar DeepSeek Chat (V3) via OpenRouter
   // Pode ser ajustado por tier no futuro
-  return tier === "gpt-5-mini" ? "deepseek/deepseek-chat-v3-0324" : "deepseek/deepseek-chat-v3-0324";
+  return tier === "gpt-5-mini" ? "deepseek/deepseek-chat" : "deepseek/deepseek-chat";
 }
 
 // --------- Cache (memória) com interface para trocar por Redis ---------
@@ -70,7 +89,7 @@ type CacheStore = {
   set: (key: string, value: string, ttlMs?: number) => Promise<void>;
 };
 
-const TTL_MS_DEFAULT = 1000 * 60 * 30; // 30 min
+const TTL_MS_DEFAULT = 1000 * 60 * 20; // 20 min
 const mem = new Map<string, CacheValue>();
 
 let cacheStore: CacheStore = {
@@ -229,7 +248,7 @@ export async function ask(userInput: string, opts: AskOpts = {}) {
   } as const;
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 30000);
+  const timeout = setTimeout(() => controller.abort(), 20000); // reduzir timeout para respostas mais rápidas
   const init: RequestInit & { signal: AbortSignal } = {
     method: "POST",
     headers: {
@@ -264,13 +283,12 @@ export async function ask(userInput: string, opts: AskOpts = {}) {
 
 // --------- Streaming (UX rápida) ---------
 export async function* askStream(userInput: string, opts: AskOpts = {}) {
-  // Streaming "falso": chamamos ask() e emitimos pedaços do texto
+  // Streaming "rápido": chunks maiores e sem atrasos artificiais
   const { text, usage } = await ask(userInput, opts) as unknown as { text: string; usage?: { input?: number; output?: number; reasoning?: number; total?: number } };
-  const chunkSize = 24;
+  const chunkSize = 32;
   for (let i = 0; i < text.length; i += chunkSize) {
     const piece = text.slice(i, i + chunkSize);
     if (piece) yield { delta: piece } as const;
-    // pequena espera opcional para UX (omitir para simplificar)
   }
   if (usage) {
     yield { usage } as const;
@@ -309,78 +327,68 @@ export async function askWithTools(
   allowed: readonly string[],
   opts: Omit<AskOpts, "needTools"> = {}
 ) {
-  // Nota: nem todos os modelos via DeepInfra suportam tools/function calling.
-  // Mantemos prioridade a DeepInfra; se o modelo recusar, o caller deve tratar o erro.
-  const apiKey = process.env.OPENROUTER_API_KEY || process.env.OPENAI_API_KEY;
-  const url = "https://openrouter.ai/api/v1/responses";
-  const model = resolveOpenAIModel("gpt-5-mini");
   const system = opts.system ?? SYSTEM_CORE;
-  const allowedTools = tools.filter((t) => allowed.includes(t.name));
-
-  const body = {
-    model,
+  const resp = await openai.responses.create({
+    model: resolveOpenAIModel("gpt-5-mini"),
     input: [
       { role: "system", content: system },
       { role: "user", content: userInput },
     ],
-    tools: allowedTools,
+    tools,
     tool_choice: "auto",
-    provider: { only: ["deepinfra"] },
-  } as const;
-
-  const resp = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
-      ...(process.env.OPENROUTER_HTTP_REFERER ? { "HTTP-Referer": process.env.OPENROUTER_HTTP_REFERER } : {}),
-      ...(process.env.OPENROUTER_TITLE ? { "X-Title": process.env.OPENROUTER_TITLE } : {}),
-    },
-    body: JSON.stringify(body),
-  } as unknown as RequestInit);
-
-  if (!resp.ok) {
-    const errText = await resp.text().catch(() => "");
-    throw new Error(`OpenRouter responses error ${resp.status}: ${errText}`);
-  }
-  return await resp.json();
+  });
+  return resp;
 }
 
 // --------- Batch API (tarefas offline baratas) ---------
 // Nota: correr em ambiente Node (não Edge). Usa ficheiro temporário JSONL.
 export async function runBatch(jobs: Array<{ id: string; prompt: string }>) {
-  // Implementação simples: executa pedidos em paralelo com prioridade DeepInfra e devolve JSONL
-  const apiKey = process.env.OPENROUTER_API_KEY || process.env.OPENAI_API_KEY;
-  const url = "https://openrouter.ai/api/v1/responses";
-  const model = resolveOpenAIModel("gpt-5-nano");
-  const headers = {
-    "Content-Type": "application/json",
-    ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
-    ...(process.env.OPENROUTER_HTTP_REFERER ? { "HTTP-Referer": process.env.OPENROUTER_HTTP_REFERER } : {}),
-    ...(process.env.OPENROUTER_TITLE ? { "X-Title": process.env.OPENROUTER_TITLE } : {}),
-  } as const;
-
-  const results = await Promise.allSettled(
-    jobs.map(async (j) => {
-      const body = {
-        model,
-        input: [{ role: "user", content: j.prompt }],
-        provider: { only: ["deepinfra"] },
-      } as const;
-      const resp = await fetch(url, { method: "POST", headers, body: JSON.stringify(body) } as unknown as RequestInit);
-      if (!resp.ok) {
-        const errText = await resp.text().catch(() => "");
-        return JSON.stringify({ id: j.id, error: { status: resp.status, message: errText } });
-      }
-      const data = await resp.json();
-      const text = String(data?.output_text ?? data?.choices?.[0]?.message?.content ?? "").trim();
-      return JSON.stringify({ id: j.id, output: text });
-    })
-  );
-
-  return results
-    .map((r) => (r.status === "fulfilled" ? r.value : JSON.stringify({ error: String(r.reason ?? "unknown") })))
+  const lines = jobs
+    .map((j) =>
+      JSON.stringify({
+        custom_id: j.id,
+        method: "POST",
+        url: "/v1/responses",
+        body: { model: resolveOpenAIModel("gpt-5-nano"), input: j.prompt },
+      })
+    )
     .join("\n");
+
+  const tmpDir = path.join(process.cwd(), ".next", "tmp");
+  await fs.mkdir(tmpDir, { recursive: true });
+  const tmpFile = path.join(tmpDir, `batch-input-${Date.now()}.jsonl`);
+  await fs.writeFile(tmpFile, lines, "utf8");
+
+  // upload do ficheiro
+  const file = await openai.files.create({
+    // @ts-expect-error: SDK aceita caminho ou blob/stream
+    file: await fs.readFile(tmpFile),
+    purpose: "batch",
+  });
+
+  // cria o batch
+  const batch = await openai.batches.create({
+    input_file_id: file.id,
+    endpoint: "/v1/responses",
+    completion_window: "24h",
+  });
+
+  // polling simples
+  let status = batch.status;
+  while (status === "in_progress" || status === "validating") {
+    await new Promise((r) => setTimeout(r, 5000));
+    const cur = await openai.batches.retrieve(batch.id);
+    status = cur.status;
+    if (status === "completed" && cur.output_file_id) {
+      const out = await openai.files.content(cur.output_file_id);
+      return await out.text();
+    }
+    if (status === "failed" || status === "expired" || status === "cancelling") {
+      throw new Error(`Batch falhou: ${status}`);
+    }
+  }
+
+  return null;
 }
 
 
